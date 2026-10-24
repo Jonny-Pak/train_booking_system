@@ -1,0 +1,8 @@
+* text=auto
+*.java text eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.ps1 text eol=crlf
+backend/mvnw text eol=lf
+backend/mvnw.cmd text eol=crlf

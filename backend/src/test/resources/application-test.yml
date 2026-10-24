@@ -1,0 +1,10 @@
+# Tests migrate a dedicated real PostgreSQL database, never H2.
+spring:
+  config:
+    import: "optional:file:../.env.test[.properties],optional:file:.env.test[.properties]"
+  datasource:
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5432/ticket_booking_test}
+    username: ${TEST_DB_USERNAME}
+    password: ${TEST_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 4

@@ -31,6 +31,12 @@ spring:
     problemdetails:
       enabled: false
 
+booking:
+  hold-seconds: ${BOOKING_HOLD_SECONDS:600}
+  expiry:
+    enabled: ${BOOKING_EXPIRY_ENABLED:true}
+    poll-milliseconds: ${BOOKING_EXPIRY_POLL_MILLISECONDS:30000}
+
 security:
   jwt:
     secret: ${JWT_SECRET}

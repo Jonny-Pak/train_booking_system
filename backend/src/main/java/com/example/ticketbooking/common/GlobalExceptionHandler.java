@@ -36,6 +36,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<ApiError> handleDataConflict(DataIntegrityViolationException exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
+                    && "uq_active_trip_seat".equals(violation.getConstraintName())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(ApiError.of(409, "SEAT_UNAVAILABLE", "One or more seats are no longer available"));
+            }
+            cause = cause.getCause();
+        }
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiError.of(409, "DATA_CONFLICT", "Data is duplicated or referenced by another record"));
     }

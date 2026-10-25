@@ -45,6 +45,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/trips", "/api/v1/trips/*", "/api/v1/trips/*/seats").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/me").hasAnyRole("CUSTOMER", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/bookings/my", "/api/v1/bookings/*").hasAnyRole("CUSTOMER", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/bookings", "/api/v1/bookings/*/cancel").hasAnyRole("CUSTOMER", "ADMIN")
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(resource -> resource

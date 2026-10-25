@@ -1,5 +1,7 @@
 # Contract API Auth và Health
 
+API đặt vé, giữ ghế, lịch sử và hủy đơn xem tại [booking-api.md](booking-api.md).
+
 ## Endpoint hiện tại
 
 | Method | Path | Quyền | Kết quả |

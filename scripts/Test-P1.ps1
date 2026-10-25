@@ -5,7 +5,8 @@ param(
     [string]$JavaHome = $env:JAVA_HOME,
     [switch]$Offline,
     [switch]$AuthSmoke,
-    [switch]$CatalogSmoke
+    [switch]$CatalogSmoke,
+    [switch]$BookingSmoke
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +20,7 @@ foreach ($binary in @($java, (Join-Path $PostgresBin 'initdb.exe'),
 }
 
 # Every run owns a new cluster, databases and application process. Existing services are untouched.
-$phase = if ($CatalogSmoke) { 'P3' } elseif ($AuthSmoke) { 'P2' } else { 'P1' }
+$phase = if ($BookingSmoke) { 'P4' } elseif ($CatalogSmoke) { 'P3' } elseif ($AuthSmoke) { 'P2' } else { 'P1' }
 $run = Join-Path $root ('.local\' + $phase.ToLowerInvariant() + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))
 New-Item -ItemType Directory -Path $run -Force | Out-Null
 $socketDirectory = Join-Path $root '.local\sockets'
@@ -147,8 +148,59 @@ function Invoke-CatalogSmoke([string]$Token) {
     Write-Output 'P3 HTTP smoke: catalog CRUD, public search/detail/seats, overlap 409 and repeated demo seed passed.'
 }
 
+function Invoke-BookingSmoke([string]$AdminToken) {
+    $base = "http://127.0.0.1:$httpPort/api/v1"
+    $adminHeaders = @{Authorization='Bearer '+$AdminToken}
+    $credential = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(16))
+    $email = 'p4-smoke@example.invalid'
+    $null = Invoke-RestMethod -Method Post -Uri "$base/auth/register" -ContentType 'application/json' `
+        -Body (@{fullName='P4 Customer';email=$email;password=$credential}|ConvertTo-Json)
+    $login = Invoke-RestMethod -Method Post -Uri "$base/auth/login" -ContentType 'application/json' `
+        -Body (@{email=$email;password=$credential}|ConvertTo-Json)
+    $headers = @{Authorization='Bearer '+$login.accessToken}
+    $demo = Invoke-RestMethod -Uri "$base/trips?origin=$([uri]::EscapeDataString('Hà Nội'))"
+    $tripId = $demo.content[0].id
+    $available = Invoke-RestMethod -Uri "$base/trips/$tripId/seats"
+    $seatId = $available[0].id
+    $body = @{tripId=$tripId;seatIds=@($seatId)} | ConvertTo-Json
+
+    $booking = Invoke-RestMethod -Method Post -Uri "$base/bookings" -Headers $headers `
+        -ContentType 'application/json' -Body $body -StatusCodeVariable responseStatus
+    if ($responseStatus -ne 201 -or $booking.status -ne 'PENDING' -or $booking.totalAmount -ne $demo.content[0].basePrice) {
+        throw 'P4 create booking HTTP smoke failed'
+    }
+    $null = Invoke-RestMethod -Method Post -Uri "$base/bookings" -Headers $adminHeaders `
+        -ContentType 'application/json' -Body $body -SkipHttpErrorCheck -StatusCodeVariable responseStatus
+    if ($responseStatus -ne 409) { throw 'P4 unavailable seat HTTP smoke failed' }
+    $history = Invoke-RestMethod -Uri "$base/bookings/my" -Headers $headers
+    if ($history.totalElements -ne 1) { throw 'P4 customer history HTTP smoke failed' }
+    $detail = Invoke-RestMethod -Uri "$base/bookings/$($booking.id)" -Headers $adminHeaders
+    if ($detail.id -ne $booking.id) { throw 'P4 admin detail HTTP smoke failed' }
+    $cancelled = Invoke-RestMethod -Method Post -Uri "$base/bookings/$($booking.id)/cancel" -Headers $headers
+    if ($cancelled.status -ne 'CANCELLED' -or $cancelled.seats[0].active) { throw 'P4 cancel HTTP smoke failed' }
+
+    $booking = Invoke-RestMethod -Method Post -Uri "$base/bookings" -Headers $headers -ContentType 'application/json' -Body $body
+    # Chỉ làm hết hạn đơn smoke vừa tạo trong cluster dùng một lần.
+    $null = & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $dbPort -U p1_runner -d p1_dev `
+        -v ON_ERROR_STOP=1 -c "UPDATE bookings SET hold_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE id = $([long]$booking.id);"
+    if ($LASTEXITCODE -ne 0) { throw 'P4 smoke expiry setup failed' }
+    $deadline = [DateTime]::UtcNow.AddSeconds(15)
+    do {
+        $detail = Invoke-RestMethod -Uri "$base/bookings/$($booking.id)" -Headers $headers
+        if ($detail.status -eq 'EXPIRED') { break }
+        Start-Sleep -Milliseconds 250
+    } while ([DateTime]::UtcNow -lt $deadline)
+    if ($detail.status -ne 'EXPIRED' -or $detail.seats[0].active) { throw 'P4 live expiry scheduler HTTP smoke failed' }
+    $booking = Invoke-RestMethod -Method Post -Uri "$base/bookings" -Headers $headers -ContentType 'application/json' -Body $body
+    $held = Invoke-RestMethod -Uri "$base/trips/$tripId/seats"
+    if ($held[0].status -ne 'HELD') { throw 'P4 public availability HTTP smoke failed' }
+    Write-Host 'P4 HTTP smoke: JWT booking, history, admin detail, conflict, cancellation, reuse and live expiry scheduler passed.'
+    return @{Token=$login.accessToken;BookingId=$booking.id}
+}
+
 $variables = @('JAVA_HOME','DB_URL','DB_USERNAME','DB_PASSWORD','TEST_DB_URL',
-    'TEST_DB_USERNAME','TEST_DB_PASSWORD','PGPASSWORD','SERVER_PORT','SPRING_PROFILES_ACTIVE','JWT_SECRET')
+    'TEST_DB_USERNAME','TEST_DB_PASSWORD','PGPASSWORD','SERVER_PORT','SPRING_PROFILES_ACTIVE','JWT_SECRET',
+    'BOOKING_HOLD_SECONDS','BOOKING_EXPIRY_ENABLED','BOOKING_EXPIRY_POLL_MILLISECONDS')
 $previous = @{}
 foreach ($name in $variables) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 $dbPort = Get-FreePort
@@ -162,6 +214,9 @@ try {
     Remove-Item Env:SPRING_PROFILES_ACTIVE -ErrorAction SilentlyContinue
     $env:PGPASSWORD = $password
     $env:JWT_SECRET = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+    $env:BOOKING_HOLD_SECONDS = '600'
+    $env:BOOKING_EXPIRY_ENABLED = 'true'
+    $env:BOOKING_EXPIRY_POLL_MILLISECONDS = '1000'
     Write-Output "$phase isolated verification: $run"
     Invoke-Native (Join-Path $PostgresBin 'initdb.exe') @('-D', $cluster, '-U', 'p1_runner',
         '--pwfile', $passwordFile, '--auth-local=scram-sha-256', '--auth-host=scram-sha-256',
@@ -195,6 +250,13 @@ try {
             Wait-Healthy $application
             if (($AuthSmoke -or $CatalogSmoke) -and $attempt -eq 1) { $smokeToken = Invoke-AuthSmoke }
             if ($CatalogSmoke -and $attempt -eq 1) { Invoke-CatalogSmoke $smokeToken }
+            if ($BookingSmoke -and $attempt -eq 1) { $bookingSmokeResult = Invoke-BookingSmoke $smokeToken }
+            if ($BookingSmoke -and $attempt -eq 2) {
+                $booking = Invoke-RestMethod -Uri "http://127.0.0.1:$httpPort/api/v1/bookings/$($bookingSmokeResult.BookingId)" `
+                    -Headers @{Authorization='Bearer '+$bookingSmokeResult.Token}
+                if ($booking.status -ne 'PENDING' -or -not $booking.seats[0].active) { throw 'P4 booking failed after restart' }
+                Write-Output 'P4 HTTP smoke: pending booking and active hold persisted across restart.'
+            }
             if (($AuthSmoke -or $CatalogSmoke) -and $attempt -eq 2) {
                 $profile = Invoke-RestMethod -Uri "http://127.0.0.1:$httpPort/api/v1/auth/me" `
                     -Headers @{Authorization='Bearer '+$smokeToken}
@@ -218,9 +280,10 @@ try {
         firstLaunch = "UP; $expectedMigrations migrations applied"
         secondLaunch = "UP; $expectedMigrations migrations unchanged"
         socketDirectory = $socketDirectory
-        scope = 'Infrastructure, auth and catalog tests; no booking API or payment implementation'
+        scope = 'Infrastructure, auth, catalog and booking tests; payment and tickets remain out of scope'
         authHttpSmoke = [bool]($AuthSmoke -or $CatalogSmoke)
         catalogHttpSmoke = [bool]$CatalogSmoke
+        bookingHttpSmoke = [bool]$BookingSmoke
     }
     $result | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $run 'verification.json') -Encoding utf8
     Write-Output "$phase verification PASSED. Temporary application and database will now stop."

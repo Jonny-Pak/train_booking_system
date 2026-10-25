@@ -19,12 +19,15 @@ public class AuthService {
     private final TokenService tokens;
     private final Clock clock;
     private final String dummyHash;
+    private final EmailVerificationService verification;
 
-    public AuthService(UserRepository users, PasswordEncoder passwords, TokenService tokens, Clock clock) {
+    public AuthService(UserRepository users, PasswordEncoder passwords, TokenService tokens, Clock clock,
+            EmailVerificationService verification) {
         this.users = users;
         this.passwords = passwords;
         this.tokens = tokens;
         this.clock = clock;
+        this.verification = verification;
         this.dummyHash = passwords.encode(UUID.randomUUID().toString());
     }
 
@@ -33,7 +36,7 @@ public class AuthService {
         if (users.existsByEmail(request.email())) throw emailConflict();
         User user = User.customer(request.fullName(), request.email(), passwords.encode(request.password()),
                 request.phone(), clock.instant());
-        try { return UserResponse.from(users.saveAndFlush(user)); }
+        try { users.saveAndFlush(user); }
         catch (DataIntegrityViolationException exception) {
             Throwable cause = exception;
             while (cause != null) {
@@ -46,6 +49,8 @@ public class AuthService {
             }
             throw exception;
         }
+        verification.send(user);
+        return UserResponse.from(user);
     }
 
     @Transactional(readOnly = true)
@@ -55,6 +60,9 @@ public class AuthService {
                 user.map(User::getPasswordHash).orElse(dummyHash));
         if (user.isEmpty() || !matches) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "Email or password is incorrect");
+        }
+        if (!user.get().isEmailVerified()) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "EMAIL_NOT_VERIFIED", "Please verify your email before login");
         }
         return tokens.issue(user.get());
     }

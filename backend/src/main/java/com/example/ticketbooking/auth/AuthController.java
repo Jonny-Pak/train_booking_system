@@ -17,8 +17,24 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
     private final AuthService auth;
+    private final EmailVerificationService verification;
 
-    public AuthController(AuthService auth) { this.auth = auth; }
+    public AuthController(AuthService auth, EmailVerificationService verification) {
+        this.auth = auth;
+        this.verification = verification;
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<Void> verifyEmail(@Valid @RequestBody VerificationRequest request) {
+        verification.verify(request.token());
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Void> resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+        verification.resend(request.email());
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
 
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) {

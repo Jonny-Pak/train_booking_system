@@ -1,0 +1,918 @@
+/* Homepage theo bố cục tham khảo: header xanh, banner rộng, form trắng, nút vàng. */
+.skip-link:not(:focus) {
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+}
+:root {
+  --green: #2474e5;
+  --ink: #182b47;
+  --cream: #fff;
+  --line: #e5e7eb;
+  background: #fff;
+  color: #253449;
+}
+.site-header {
+  width: 100%;
+  height: 86px;
+  padding: 0 30px;
+  margin: 0;
+  gap: 24px;
+  background: #2474e5;
+  color: #fff;
+  border: 0;
+}
+.site-header .brand {
+  color: white;
+  font-size: 27px;
+  letter-spacing: -1.3px;
+}
+.site-header .brand > span:first-child {
+  background: transparent;
+  color: #ffdb36;
+  margin-right: 5px;
+  width: 35px;
+}
+.site-header .brand .brand-dot {
+  color: #ffdb36;
+}
+.brand-promise {
+  font-size: 10px;
+  font-weight: 550;
+  line-height: 1.8;
+  max-width: 260px;
+}
+.site-header nav {
+  margin-left: auto;
+  margin-right: 0;
+  font-size: 12px;
+  gap: 24px;
+}
+.site-header nav a.active {
+  color: white;
+}
+.site-header nav a.active:after {
+  background: #ffda36;
+}
+.header-language {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.site-header .account-nav > .button {
+  background: white;
+  color: #173554;
+  border-color: #e5ebf5;
+  min-height: 43px;
+  padding: 10px 20px;
+}
+.site-header .account-nav > .button:hover {
+  background: #f0f6ff;
+}
+.site-header .icon-button:hover {
+  background: #ffffff20;
+}
+.site-header .user-name {
+  max-width: 150px;
+}
+.home-main {
+  width: 100%;
+  margin: 0;
+}
+.reference-hero {
+  position: relative;
+  background-color: #138bfa;
+  background-size: cover;
+  background-position: center;
+  padding: 42px 28px 64px;
+  min-height: 510px;
+  isolation: isolate;
+}
+.reference-hero:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, #0045b82b, #0071e500 65%, #00479612);
+}
+.coach-hero {
+  background-image: url("/images/coach-hero.png");
+}
+.railway-hero {
+  background-image: url("/images/railway-hero.png");
+  background-position: center 54%;
+}
+.railway-hero:before {
+  background: linear-gradient(180deg, #052c3766, #153e1826);
+}
+.reference-hero-inner {
+  max-width: 1180px;
+  margin: auto;
+}
+.reference-heading {
+  text-align: center;
+  color: white;
+  margin: 4px 0 32px;
+  min-height: 128px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.reference-heading > span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2.3px;
+  margin-bottom: 10px;
+  text-shadow: 0 2px 8px #07315d45;
+}
+.reference-heading h1 {
+  font-size: 39px;
+  line-height: 1.3;
+  font-weight: 750;
+  letter-spacing: -1px;
+  text-shadow:
+    0 3px 0 #0560bc80,
+    0 4px 20px #053e8d40;
+}
+.reference-heading h1 em {
+  font-style: normal;
+  color: #ffdc35;
+  font-size: 45px;
+}
+.railway-hero .reference-heading h1 {
+  font-size: 35px;
+  text-shadow: 0 3px 15px #00251480;
+}
+.reference-search {
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 10px 35px #02377324;
+  overflow: hidden;
+}
+.reference-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 25px;
+  border-bottom: 1px solid #eceef1;
+  padding: 0 26px;
+}
+.reference-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 72px;
+  min-width: 170px;
+  padding: 18px 22px;
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: #60656c;
+  font-size: 16px;
+}
+.reference-tabs button.active {
+  color: #2474e5;
+  border-bottom-color: #2474e5;
+  font-weight: 650;
+}
+.reference-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 220px 170px;
+  gap: 0;
+  padding: 22px 20px 0;
+  position: relative;
+}
+.reference-fields label {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 16px 22px;
+  min-height: 84px;
+  border: 1px solid #e1e3e7;
+  border-right: 0;
+}
+.reference-fields .departure-field {
+  border-radius: 9px 0 0 9px;
+}
+.reference-fields .destination-field {
+  padding-left: 30px;
+}
+.reference-fields .date-field {
+  border-right: 1px solid #e1e3e7;
+  border-radius: 0 9px 9px 0;
+}
+.reference-fields .field-content {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+.field-content > span {
+  color: #9b9fa4;
+  font-size: 11px;
+}
+.reference-fields input {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 550;
+  outline-offset: 5px;
+  padding: 0;
+  min-height: 24px;
+}
+.reference-fields input::placeholder {
+  font-weight: 400;
+  color: #949ba5;
+}
+.field-symbol {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  background: #2a78e8;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.field-symbol i {
+  height: 8px;
+  width: 8px;
+  border-radius: 50%;
+  background: white;
+}
+.destination-field > svg {
+  color: #ef5c65;
+}
+.date-field > svg {
+  color: #287aea;
+}
+.reference-swap {
+  position: absolute;
+  top: 47px;
+  left: calc((100% - 430px) / 2 + 20px);
+  transform: translateX(-50%) rotate(90deg);
+  border: 0;
+  border-radius: 50%;
+  background: #f3f4f6;
+  height: 34px;
+  width: 34px;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+}
+.reference-submit {
+  border: 0;
+  border-radius: 9px;
+  background: #ffd633;
+  color: #142336;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-left: 18px;
+  min-height: 84px;
+  padding: 10px 20px;
+}
+.reference-submit:hover {
+  background: #ffcc10;
+}
+.reference-search-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 16px 24px 20px;
+  color: #657484;
+  font-size: 10px;
+}
+.reference-search-note > svg {
+  color: #27a56b;
+}
+.reference-search-note > small {
+  margin-left: auto;
+  color: #8c96a0;
+  font-size: 10px;
+}
+.reference-benefits {
+  background: #1055a1;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 70px;
+  padding: 22px 25px;
+}
+.reference-benefits > div,
+.reference-benefits > a {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 550;
+}
+.reference-benefits svg {
+  color: #ffda36;
+  width: 24px;
+}
+.home-content {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 45px 0 20px;
+}
+.reference-section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.reference-section-heading h2 {
+  font-size: 25px;
+  font-weight: 650;
+  letter-spacing: -0.7px;
+  color: #1b2939;
+}
+.reference-section-heading > span,
+.reference-section-heading p {
+  color: #8792a0;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.reference-section-heading p {
+  margin-top: 9px;
+}
+.suggested-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+.suggested-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e3e7ed;
+  padding: 0;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  text-align: left;
+  transition: box-shadow 0.2s;
+}
+.suggested-card:hover {
+  box-shadow: 0 7px 24px #1d477b20;
+}
+.route-photo {
+  width: 100%;
+  flex-shrink: 0;
+  height: 145px;
+  background-size: cover;
+  background-position: center;
+  padding: 13px;
+  display: flex;
+  align-items: flex-end;
+}
+.railway-photo {
+  background-image: url("/images/railway-hero.png");
+}
+.coach-photo {
+  background-image: url("/images/coach-hero.png");
+  background-position: 83% center;
+}
+.route-photo > span {
+  display: inline-block;
+  background: #ffffffed;
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 10px;
+  color: #2474e5;
+  font-weight: 600;
+}
+.suggested-card-body {
+  width: 100%;
+  padding: 17px 15px;
+}
+.suggested-card-body > strong {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.8;
+}
+.suggested-card-body > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #2474e5;
+  margin-top: 10px;
+  font-size: 10px;
+}
+.home-content .results-section {
+  margin-top: 42px;
+}
+.reference-result-count {
+  background: #eef5ff;
+  color: #2872d5 !important;
+  padding: 7px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.home-content .vehicle-icon {
+  background: #eef5ff;
+  color: #2474e5;
+}
+.home-content .trip-card {
+  border-color: #e0e5ed;
+}
+.home-content .trip-price {
+  border-color: #e7ebf1;
+}
+.home-content .trip-route small {
+  color: #8f97a3;
+}
+.reference-guide {
+  margin-top: 45px;
+  padding: 32px;
+  background: #f5f8fc;
+  border: 1px solid #e4ebf4;
+  border-radius: 12px;
+  scroll-margin-top: 25px;
+}
+.reference-guide > h2 {
+  font-size: 23px;
+  margin-bottom: 27px;
+}
+.reference-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+}
+.reference-guide-grid > div > span {
+  display: inline-grid;
+  place-items: center;
+  width: 35px;
+  height: 35px;
+  background: #e5efff;
+  color: #2474e5;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.reference-guide-grid h3 {
+  font-size: 14px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.reference-guide-grid p {
+  font-size: 11px;
+  line-height: 1.8;
+  color: #8591a0;
+}
+.railway-intro {
+  background: linear-gradient(110deg, #effaf4, #edf5ff);
+  border: 1px solid #dcebe2;
+  border-top: 4px solid #218553;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 40px;
+}
+.railway-intro-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28px 30px;
+  gap: 25px;
+}
+.railway-intro-heading div > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #218553;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+.railway-intro-heading h2 {
+  font-size: 24px;
+  color: #1c3444;
+}
+.railway-intro-heading > svg {
+  color: #2474e5;
+}
+.railway-intro-items {
+  background: white;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 23px 15px;
+}
+.railway-intro-items > div {
+  text-align: center;
+  border-right: 1px solid #e2eaf1;
+  padding: 6px 15px;
+}
+.railway-intro-items > div:last-child {
+  border: 0;
+}
+.railway-intro-items strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.railway-intro-items p {
+  font-size: 10px;
+  color: #8994a1;
+  margin-top: 8px;
+  line-height: 1.7;
+}
+.site-footer {
+  background: #f5f8fc;
+  border-color: #e4eaf1;
+  color: #8a97a8;
+}
+.footer-brand {
+  color: #2474e5;
+}
+@media (min-width: 1800px) {
+  .reference-hero {
+    min-height: 580px;
+    padding-top: 58px;
+  }
+  .reference-heading {
+    margin-bottom: 42px;
+  }
+  .reference-hero-inner,
+  .home-content {
+    max-width: 1280px;
+  }
+  .reference-heading h1 {
+    font-size: 46px;
+  }
+  .reference-heading h1 em {
+    font-size: 53px;
+  }
+}
+@media (max-width: 1250px) {
+  .brand-promise {
+    display: none;
+  }
+  .site-header {
+    padding: 0 24px;
+    gap: 22px;
+  }
+  .home-content {
+    padding: 35px 28px 20px;
+  }
+  .reference-fields {
+    grid-template-columns: 1fr 1fr 200px 150px;
+  }
+  .reference-fields label {
+    padding: 15px;
+  }
+  .reference-swap {
+    left: calc((100% - 390px) / 2 + 20px);
+  }
+  .reference-submit {
+    font-size: 16px;
+    margin-left: 14px;
+    padding: 10px;
+  }
+  .reference-benefits {
+    gap: 40px;
+  }
+  .suggested-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .header-language,
+  .header-guide {
+    display: none;
+  }
+  .site-header {
+    gap: 15px;
+  }
+  .reference-hero {
+    padding: 30px 24px 44px;
+    min-height: 460px;
+  }
+  .reference-heading h1 {
+    font-size: 33px;
+  }
+  .reference-heading h1 em {
+    font-size: 36px;
+  }
+  .reference-heading {
+    margin-bottom: 25px;
+  }
+  .reference-fields {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 18px;
+  }
+  .reference-fields label {
+    border: 1px solid #e1e3e7 !important;
+    border-radius: 7px !important;
+    min-height: 75px;
+  }
+  .reference-fields .destination-field {
+    padding-left: 24px;
+  }
+  .reference-swap {
+    left: 50%;
+    top: 39px;
+    border: 3px solid white;
+    height: 33px;
+    width: 33px;
+  }
+  .reference-submit {
+    margin: 0;
+    min-height: 75px;
+    font-size: 17px;
+  }
+  .reference-search-note {
+    padding-top: 0;
+  }
+  .reference-search-note > small {
+    display: none;
+  }
+  .reference-tabs button {
+    font-size: 14px;
+    min-width: 145px;
+    min-height: 65px;
+    padding: 14px;
+  }
+  .reference-tabs {
+    gap: 10px;
+  }
+  .reference-benefits {
+    gap: 25px;
+    padding: 20px;
+  }
+  .reference-benefits > div,
+  .reference-benefits > a {
+    font-size: 11px;
+    gap: 7px;
+  }
+  .reference-benefits svg {
+    width: 20px;
+  }
+  .suggested-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .reference-section-heading h2 {
+    font-size: 23px;
+  }
+}
+@media (max-width: 600px) {
+  .site-header {
+    padding: 15px 18px 9px;
+    min-height: 100px;
+    row-gap: 0;
+  }
+  .site-header .brand {
+    font-size: 23px;
+  }
+  .site-header nav {
+    margin: 0;
+    width: 100%;
+    font-size: 11px;
+    gap: 26px;
+  }
+  .site-header .account-nav > .button {
+    min-height: 34px;
+    padding: 7px 12px;
+    font-size: 10px;
+  }
+  .site-header .user-name {
+    max-width: 110px;
+  }
+  .reference-hero {
+    padding: 26px 16px 34px;
+    min-height: 0;
+    background-position: 75% center;
+  }
+  .railway-hero {
+    background-position: 61% center;
+  }
+  .reference-heading {
+    min-height: 100px;
+    margin-bottom: 22px;
+  }
+  .reference-heading > span {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+  }
+  .reference-heading h1 {
+    font-size: 28px;
+  }
+  .reference-heading h1 em {
+    font-size: 28px;
+  }
+  .railway-hero .reference-heading h1 {
+    font-size: 27px;
+  }
+  .reference-tabs {
+    padding: 0 12px;
+    gap: 5px;
+    justify-content: space-between;
+  }
+  .reference-tabs button {
+    font-size: 11px;
+    min-width: 0;
+    min-height: 60px;
+    padding: 12px 4px;
+    gap: 5px;
+  }
+  .reference-tabs svg {
+    width: 19px;
+    height: 19px;
+  }
+  .reference-fields {
+    padding: 15px 12px;
+    gap: 12px 8px;
+  }
+  .reference-fields label {
+    padding: 12px 10px;
+    gap: 8px;
+    min-height: 76px;
+  }
+  .reference-fields .destination-field {
+    padding-left: 19px;
+  }
+  .reference-fields input {
+    font-size: 12px;
+    min-height: 23px;
+  }
+  .reference-fields .field-content > span {
+    font-size: 9px;
+  }
+  .reference-fields label > svg {
+    width: 21px;
+  }
+  .field-symbol {
+    width: 19px;
+    height: 19px;
+  }
+  .field-symbol i {
+    width: 7px;
+    height: 7px;
+  }
+  .reference-swap {
+    width: 29px;
+    height: 29px;
+    top: 40px;
+  }
+  .reference-submit {
+    font-size: 15px;
+    min-height: 76px;
+    gap: 6px;
+  }
+  .reference-submit svg {
+    width: 16px;
+  }
+  .reference-search-note {
+    font-size: 8px;
+    padding: 0 13px 16px;
+    gap: 5px;
+  }
+  .reference-search-note svg {
+    width: 13px;
+  }
+  .reference-benefits {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 18px 22px;
+    gap: 16px 18px;
+  }
+  .reference-benefits > div,
+  .reference-benefits > a {
+    font-size: 10px;
+  }
+  .reference-benefits svg {
+    width: 20px;
+    height: 20px;
+  }
+  .home-content {
+    padding: 30px 16px 10px;
+  }
+  .reference-section-heading {
+    align-items: flex-start;
+    gap: 13px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .reference-section-heading h2 {
+    font-size: 22px;
+  }
+  .reference-section-heading > span {
+    font-size: 10px;
+  }
+  .reference-section-heading p {
+    font-size: 10px;
+  }
+  .suggested-grid {
+    gap: 12px;
+  }
+  .route-photo {
+    height: 115px;
+    padding: 9px;
+  }
+  .route-photo > span {
+    font-size: 8px;
+  }
+  .suggested-card-body {
+    padding: 12px;
+  }
+  .suggested-card-body > strong {
+    font-size: 11px;
+    gap: 4px;
+  }
+  .suggested-card-body > strong svg {
+    width: 12px;
+  }
+  .suggested-card-body > span {
+    font-size: 8px;
+    line-height: 1.8;
+    gap: 5px;
+  }
+  .suggested-card-body > span svg {
+    width: 13px;
+  }
+  .home-content .results-section {
+    margin-top: 32px;
+  }
+  .reference-guide {
+    padding: 23px 20px;
+    margin-top: 32px;
+  }
+  .reference-guide > h2 {
+    font-size: 20px;
+  }
+  .reference-guide-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .reference-guide-grid > div {
+    position: relative;
+    padding-left: 49px;
+  }
+  .reference-guide-grid > div > span {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  .reference-guide-grid h3 {
+    font-size: 13px;
+  }
+  .reference-guide-grid p {
+    font-size: 10px;
+  }
+  .railway-intro-heading {
+    padding: 22px 18px;
+    gap: 12px;
+  }
+  .railway-intro-heading h2 {
+    font-size: 19px;
+    line-height: 1.5;
+  }
+  .railway-intro-heading div > span {
+    font-size: 8px;
+    line-height: 1.8;
+  }
+  .railway-intro-heading > svg {
+    width: 32px;
+  }
+  .railway-intro-items {
+    grid-template-columns: 1fr;
+    padding: 8px 18px;
+  }
+  .railway-intro-items > div {
+    border-right: 0;
+    border-bottom: 1px solid #e2eaf1;
+    padding: 16px;
+    text-align: left;
+  }
+  .railway-intro-items strong {
+    font-size: 13px;
+  }
+  .railway-intro-items p {
+    font-size: 10px;
+    margin-top: 5px;
+  }
+  .site-footer {
+    margin-top: 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .suggested-card {
+    transition: none;
+  }
+}

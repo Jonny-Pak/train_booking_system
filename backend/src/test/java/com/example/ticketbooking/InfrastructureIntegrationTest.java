@@ -42,6 +42,9 @@ class InfrastructureIntegrationTest {
                     .isEqualTo("existing@example.invalid");
             assertThat(jdbc.queryForObject("SELECT password_hash FROM " + schema + ".users", String.class))
                     .isEqualTo("existing-hash");
+            assertThat(jdbc.queryForObject("SELECT email_verified FROM " + schema + ".users", Boolean.class)).isTrue();
+            jdbc.update("INSERT INTO " + schema + ".users(full_name,email,password_hash) VALUES ('New', 'new@example.invalid', 'hash')");
+            assertThat(jdbc.queryForObject("SELECT email_verified FROM " + schema + ".users WHERE email = 'new@example.invalid'", Boolean.class)).isFalse();
         } finally { jdbc.execute("DROP SCHEMA " + schema + " CASCADE"); }
     }
 
@@ -62,7 +65,7 @@ class InfrastructureIntegrationTest {
 
     @Test
     void migrationCreatesAllNineBusinessTables() {
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("4");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("5");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         assertThat(jdbc.queryForList("""
                 SELECT table_name FROM information_schema.tables

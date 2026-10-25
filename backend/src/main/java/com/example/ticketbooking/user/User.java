@@ -38,6 +38,21 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified;
+
+    @JsonIgnore
+    @Column(name = "verification_token_hash", length = 64)
+    private String verificationTokenHash;
+
+    @JsonIgnore
+    @Column(name = "verification_expires_at")
+    private Instant verificationExpiresAt;
+
+    @JsonIgnore
+    @Column(name = "verification_sent_at")
+    private Instant verificationSentAt;
+
     protected User() { }
 
     public static User customer(String fullName, String email, String passwordHash,
@@ -60,4 +75,21 @@ public class User {
     public String getPhone() { return phone; }
     public Role getRole() { return role; }
     public Instant getCreatedAt() { return createdAt; }
+    public boolean isEmailVerified() { return emailVerified; }
+    @JsonIgnore
+    public Instant getVerificationExpiresAt() { return verificationExpiresAt; }
+    @JsonIgnore
+    public Instant getVerificationSentAt() { return verificationSentAt; }
+
+    public void setEmailVerification(String tokenHash, Instant expiresAt, Instant sentAt) {
+        verificationTokenHash = tokenHash;
+        verificationExpiresAt = expiresAt;
+        verificationSentAt = sentAt;
+    }
+
+    public void verifyEmail() {
+        emailVerified = true;
+        verificationTokenHash = null;
+        verificationExpiresAt = null;
+    }
 }

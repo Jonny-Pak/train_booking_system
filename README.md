@@ -4,9 +4,9 @@
 
 ## Phạm vi hiện tại
 
-P1 cung cấp hạ tầng, 9 bảng và health check. P2 bổ sung đăng ký, đăng nhập, BCrypt, JWT, `/api/v1/auth/me` và phân quyền CUSTOMER/ADMIN. Chưa có CRUD catalog, booking, thanh toán hoặc UI nghiệp vụ.
+P1 cung cấp hạ tầng, 9 bảng và health check. P2 có auth/JWT và phân quyền. P3 có CRUD tuyến, phương tiện, ghế, chuyến cho ADMIN; tìm chuyến, chi tiết và trạng thái ghế công khai. Chưa có API tạo booking, thanh toán hoặc UI nghiệp vụ.
 
-Public: GET health, POST register/login. GET `/api/v1/auth/me` yêu cầu JWT; `/api/v1/admin/**` chỉ ADMIN. Endpoint chưa được khai báo bị chặn. Không có tài khoản mặc định hoặc đăng ký ADMIN công khai.
+Public: GET health, POST register/login, GET `/api/v1/trips`, `/api/v1/trips/{id}`, `/api/v1/trips/{id}/seats`. GET `/api/v1/auth/me` yêu cầu JWT; `/api/v1/admin/**` chỉ ADMIN. Endpoint chưa được khai báo bị chặn. Không có tài khoản mặc định hoặc đăng ký ADMIN công khai.
 
 ## Yêu cầu
 
@@ -147,20 +147,48 @@ Xem request/response và ví dụ PowerShell tại [API contract](docs/api-contr
 UPDATE users SET role = 'ADMIN' WHERE email = 'admin@example.com';
 ```
 
-Thay email ví dụ bằng tài khoản thật cần nâng quyền. API register không nhận `role` (gửi lên sẽ trả 400). Quyền truy cập được đọc từ database mỗi request, nên thay đổi quyền có hiệu lực cả với token cũ. Chưa có các API CRUD admin của P3/P7; handler kiểm tra quyền ADMIN trong test chỉ có ở classpath test.
+Thay email ví dụ bằng tài khoản thật cần nâng quyền. API register không nhận `role` (gửi lên sẽ trả 400). Quyền truy cập được đọc từ database mỗi request, nên thay đổi quyền có hiệu lực cả với token cũ. P3 đã có CRUD catalog ADMIN; dashboard, quản lý booking và thống kê thuộc các pha sau.
+
+## P3 Catalog và tìm chuyến
+
+```powershell
+# toàn bộ tests + auth/catalog HTTP smoke + seed lặp + restart, trên cluster riêng
+.\scripts\Test-P3.ps1 -JavaHome 'C:\Program Files\Java\jdk-21.0.12' -Offline
+
+# ví dụ tìm chuyến khi backend local đã chạy; thay tên/ngày theo dữ liệu thực tế
+Invoke-RestMethod 'http://localhost:8080/api/v1/trips?date=2030-01-02&vehicleType=BUS&page=0&size=20'
+```
+
+Danh sách admin: `/api/v1/admin/routes`, `/vehicles`, `/trips`; quản lý ghế dưới `/api/v1/admin/vehicles/{vehicleId}/seats`. GET item/POST/PUT/DELETE có trong [contract catalog](docs/catalog-api.md). PUT thay đầy đủ các field; tạo chuyến sau khi tuyến, phương tiện và ghế đã có.
+
+Ngày tìm chuyến dùng `Asia/Ho_Chi_Minh`; timestamps đầu vào phải có `Z` hoặc offset, response dùng UTC. Phân trang bắt đầu từ 0, size 1–100; tìm chuyến sắp xếp cố định theo giờ đi rồi ID. Chỉ công khai chuyến SCHEDULED chưa khởi hành với tuyến/phương tiện active. Trạng thái ghế là AVAILABLE/HELD/BOOKED; GET không tạo hoặc giải phóng hold.
+
+Không xóa tuyến/phương tiện đang được tham chiếu. Chuyến có booking history không được sửa/xóa; cấu trúc ghế của phương tiện có booking history không được đổi. Chuyến cùng phương tiện không được chồng khoảng `[departureAt, arrivalAt)`; hai chuyến nối đúng giờ được phép.
+
+### Dữ liệu demo
+
+`database/02_demo_seed.sql` chỉ chạy thủ công trên database demo riêng đã được Flyway migrate. Không chạy trong database có dữ liệu người dùng thật:
+
+```powershell
+& 'C:\Program Files\PostgreSQL\18\bin\psql.exe' -h localhost -p 5432 `
+  -U '<demo_user>' -d ticket_booking_demo -W -v ON_ERROR_STOP=1 -f database/02_demo_seed.sql
+```
+
+User/database demo cần được tạo trước; chạy backend với cấu hình trỏ đúng database đó để migrate trước khi seed. Script không tạo user/mật khẩu; đánh dấu phương tiện bằng `DEMO-P3-*` và tên `[DEMO P3]`, tạo 8 ghế/phương tiện và chuyến sau 7 ngày tính từ lần seed đầu. Chạy lại không đổi giờ hoặc nhân đôi chuyến. Seed từ chối nếu phương tiện demo đã có booking history. Không có seed tự chạy lúc startup. Logs kiểm chứng P3 ở `.local/p3-*/`.
 
 ## Database và migration
 
 - Flyway V1 tạo `users`, `routes`, `vehicles`, `seats`, `trips`, `bookings`, `booking_seats`, `payments`, `tickets`.
 - V2 chuẩn hóa email và thêm uniqueness/CHECK cho email chuẩn hóa. V1 giữ nguyên. Khi khởi động phiên bản P2, Flyway tự nâng database V1 lên V2.
+- V3 thêm index tìm tuyến, lịch/chuyến và booking theo chuyến. Khởi động phiên bản P3 sẽ tự nâng schema đến V3; V1/V2 giữ nguyên.
 - PostgreSQL còn có bảng hạ tầng `flyway_schema_history`.
 - Nguồn schema có hiệu lực: `backend/src/main/resources/db/migration/`.
 - `database/01_schema.sql` là bản tham chiếu từ tài liệu; không chạy thủ công trước Flyway.
 - Hibernate dùng `ddl-auto=validate`, không tạo/cập nhật schema.
-- Không sửa V1 sau khi đã chia sẻ/áp dụng; thay đổi tiếp theo dùng V2/V3.
+- Không sửa migration đã chia sẻ/áp dụng; thay đổi schema sau P3 dùng V4 trở lên.
 - Không dùng `baseline-on-migrate=true` để bỏ qua database có schema chưa được kiểm chứng.
 - `TIMESTAMPTZ` biểu diễn thời điểm tuyệt đối; connection/JPA dùng UTC. UI tương lai dùng `Asia/Ho_Chi_Minh`.
-- P2 đã có entity `User` được Hibernate validate. Các entity nghiệp vụ khác được bổ sung ở P3–P4.
+- Hibernate đã validate User, Route, Vehicle, Seat và Trip. Booking/Payment/Ticket entities thuộc các pha sau.
 
 Nếu database V1 đã có email trùng sau chuẩn hóa, V2 sẽ thất bại nguyên tử và giữ dữ liệu cũ. Xác minh tài khoản trước khi xử lý thủ công; không xóa/merge tự động. Truy vấn kiểm tra:
 
@@ -171,10 +199,12 @@ FROM users GROUP BY lower(btrim(email)) HAVING count(*) > 1;
 
 ## Tài liệu và bước tiếp theo
 
-- [Kiến trúc và quyết định P1](docs/architecture.md)
+- [Kiến trúc và quyết định backend](docs/architecture.md)
 - [ERD](docs/02_ERD.md)
 - [Contract API hiện tại](docs/api-contract.md)
 - [Báo cáo kiểm chứng P1](docs/P1-report.md)
 - [Báo cáo kiểm chứng P2](docs/P2-report.md)
+- [Contract Catalog/Trip API](docs/catalog-api.md)
+- [Báo cáo kiểm chứng P3](docs/P3-report.md)
 
-WBS P1: `1.2.2.1`, `1.3.1.1`. WBS P2: `1.2.2.2`, `1.3.1.2`. Tiếp theo là P3: CRUD tuyến/phương tiện/ghế/chuyến và tìm chuyến.
+WBS P3: `1.3.2.1` (tuyến/phương tiện/ghế), `1.3.2.2` (lịch/giá/tìm chuyến). Tiếp theo là P4: tạo booking, giữ ghế có hạn, hủy/hết hạn và chống đặt trùng.

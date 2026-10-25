@@ -2,7 +2,7 @@
 
 ## Phạm vi
 
-Một Spring Boot application và một PostgreSQL theo Modular Monolith. P1 dựng hạ tầng; P2 triển khai auth/user; P3 triển khai route/vehicle/trip; P4 triển khai booking và giữ ghế. Chưa có frontend, payment hoặc phát hành vé.
+Một Spring Boot application và một PostgreSQL theo Modular Monolith. P1 dựng hạ tầng; P2 triển khai auth/user; P3 triển khai route/vehicle/trip; P4 triển khai booking và giữ ghế; P5 có React Customer. Payment và phát hành vé thuộc P6.
 
 Stack khóa: Java 21, Spring Boot 3.5.16, Maven Wrapper 3.9.12, Spring Data JPA/Hibernate, Flyway Core và module PostgreSQL 11.20.3. Dependency versions lấy từ Spring Boot BOM, ngoại trừ Flyway được khóa đồng bộ core/module ở 11.20.3 để hỗ trợ PostgreSQL 18 đang có trên máy. Bản mặc định của Boot cảnh báo chỉ được kiểm chứng đến PostgreSQL 17.
 
@@ -12,7 +12,7 @@ Các module dự kiến: `auth`, `user`, `route`, `vehicle` (gồm ghế), `trip
 
 Controller nhận DTO và kiểm tra input; service thực thi nghiệp vụ/transaction; repository truy cập dữ liệu. Không trả entity JPA trực tiếp qua REST. Backend quyết định user, giá, thanh toán và quyền sở hữu dữ liệu.
 
-`common` có lỗi API, exception nghiệp vụ và exception advice. `config` quản lý SecurityFilterChain stateless; `auth` phát hành/xác minh JWT; `user` quản lý JPA entity và DTO tài khoản. CORS theo origin frontend thuộc P5.
+`common` có lỗi API, exception nghiệp vụ và exception advice. `config` quản lý SecurityFilterChain stateless và CORS; `auth` phát hành/xác minh JWT; `user` quản lý JPA entity và DTO tài khoản.
 
 ## Xác thực P2
 
@@ -67,6 +67,20 @@ BookingExpiryScheduler chạy mỗi 30 giây, lấy tối đa 100 trip ID có ho
 GET history/detail không ghi database. Field holdExpired phản ánh thời gian; status/active có thể chờ lượt scheduler để lưu EXPIRED/inactive. Tạo đơn và cancel luôn kiểm tra lại deadline trong transaction. Admin filter áp dụng status đã lưu. P6 phải kiểm tra trạng thái và deadline dưới cùng khóa trước khi chấp nhận payment, không tin riêng response GET.
 
 V4 chỉ thêm indexes history theo user và cho admin; không sửa V1/V2/V3, không thêm bảng. API history dùng page tối đa 100 và một truy vấn ghế cho mỗi booking để giữ code đơn giản; khi cần lưu lượng lớn có thể tải ghế theo batch.
+
+## React Customer P5
+
+React + Vite + React Router trong frontend/, JavaScript và CSS thuần. Mỗi trang có component riêng; AuthContext dùng cho session, state nghiệp vụ giữ ở trang tương ứng. Không dùng Redux hoặc generic workflow. API client dùng fetch, Bearer header và credentials omit; không tự retry POST.
+
+Token/expiry/profile trong sessionStorage theo tab, có fallback bộ nhớ khi storage bị chặn. Reload xác minh /auth/me; 401 hoặc deadline JWT xóa phiên client. Guard chỉ hỗ trợ điều hướng, backend vẫn quyết định quyền. Logout không thu hồi token server. Không ghi token/password vào URL hoặc log.
+
+Search dùng query string để hỗ trợ reload và back/forward. Loading, error và empty được hiển thị rõ; không thay dữ liệu thật bằng dữ liệu demo giả khi API lỗi. Chọn ghế trước login được chuyển qua router state và kiểm tra lại khi quay về; conflict 409 xóa lựa chọn và tải lại sơ đồ.
+
+Sơ đồ ghế chỉ là minh họa vì database không có tọa độ ghế. Booking detail dùng tổng/giá từ server, countdown chỉ hiển thị; PENDING quá hạn được hiển thị EXPIRED dù scheduler chưa ghi status. Poll detail mỗi 15 giây, tạm dừng trong lúc hủy để response cũ không ghi đè kết quả mới. Chuyến không còn public trả 404 không làm mất khả năng xem đơn và giá snapshot.
+
+Vite proxy /api đến backend trong dev; production cần reverse proxy hoặc VITE_API_BASE_URL phù hợp và SPA fallback. Backend CorsConfig chỉ cho origin cụ thể từ APP_CORS_ALLOWED_ORIGINS, mặc định localhost/127.0.0.1:5173; không wildcard, không cookie credentials. CORS không thay thế authentication.
+
+Font tiếng Việt đóng gói trong bundle, không phụ thuộc CDN; mobile có layout riêng, focus rõ, semantic labels, live status và reduced motion. Vitest kiểm tra API/session/deadline, Playwright chạy Edge với backend/PostgreSQL thật trên cluster tạm.
 
 ## Quyết định cho các pha sau
 

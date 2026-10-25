@@ -11,7 +11,9 @@ API đặt vé, giữ ghế, lịch sử và hủy đơn xem tại [booking-api.
 | POST | `/api/v1/auth/login` | Public | 200 JWT và hồ sơ |
 | GET | `/api/v1/auth/me` | CUSTOMER/ADMIN | 200 hồ sơ theo JWT subject |
 
-Prefix `/api/v1/admin/**` yêu cầu ADMIN. CRUD Catalog/Trip và các GET trip public của P3 được mô tả tại [catalog-api.md](catalog-api.md). Endpoint còn lại chưa được mở. Health không lộ components/details. Authentication stateless, không có tài khoản mặc định hoặc cookie session.
+Prefix `/api/v1/admin/**` yêu cầu ADMIN. CRUD Catalog/Trip và các GET trip public của P3 được mô tả tại [catalog-api.md](catalog-api.md); booking theo [booking-api.md](booking-api.md). Endpoint chưa khai báo vẫn bị chặn. Health không lộ components/details. Authentication stateless, không có tài khoản mặc định hoặc cookie session.
+
+P5 hỗ trợ CORS cho origin frontend cụ thể trong APP_CORS_ALLOWED_ORIGINS, mặc định http://localhost:5173 và http://127.0.0.1:5173. Preflight không cần JWT nhưng request nghiệp vụ vẫn cần Bearer như contract. Không hỗ trợ cookie credentials hoặc wildcard origin.
 
 ## Register
 

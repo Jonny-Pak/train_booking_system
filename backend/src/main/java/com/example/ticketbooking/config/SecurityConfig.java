@@ -32,6 +32,7 @@ public class SecurityConfig {
         AccessDeniedHandler forbidden = (request, response, exception) ->
                 writeError(response, mapper, 403, "FORBIDDEN", "Access is denied");
         return http
+                .cors(org.springframework.security.config.Customizer.withDefaults())
                 // Only Authorization: Bearer is accepted, never cookies or browser Basic Auth.
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -1,10 +1,10 @@
 # Hệ thống bán vé tàu xe trực tuyến
 
-Đồ án Quản lý dự án phần mềm. Backend dùng Java 21, Spring Boot 3.5.16, PostgreSQL 16+, Flyway và Spring Security JWT. Frontend React/Vite và VNPAY Sandbox sẽ được triển khai trong các pha tiếp theo.
+Đồ án Quản lý dự án phần mềm. Backend dùng Java 21, Spring Boot 3.5.16, PostgreSQL 16+, Flyway và Spring Security JWT. P5 có frontend React/Vite cho Customer; VNPAY Sandbox thuộc P6.
 
 ## Phạm vi hiện tại
 
-P1 cung cấp hạ tầng, 9 bảng và health check. P2 có auth/JWT và phân quyền. P3 có CRUD tuyến, phương tiện, ghế, chuyến cho ADMIN; tìm chuyến, chi tiết và trạng thái ghế công khai. P4 có tạo booking, giữ ghế, lịch sử, hủy và scheduler hết hạn. Chưa có thanh toán hoặc UI nghiệp vụ.
+P1 cung cấp hạ tầng, 9 bảng và health check. P2 có auth/JWT và phân quyền. P3 có catalog/tìm chuyến. P4 có booking, giữ ghế, lịch sử, hủy và scheduler hết hạn. P5 có giao diện Customer tiếng Việt để sử dụng các API này. Chưa có thanh toán hoặc UI quản trị.
 
 Public: GET health, POST register/login, GET `/api/v1/trips`, `/api/v1/trips/{id}`, `/api/v1/trips/{id}/seats`. GET `/api/v1/auth/me` yêu cầu JWT; `/api/v1/admin/**` chỉ ADMIN. Endpoint chưa được khai báo bị chặn. Không có tài khoản mặc định hoặc đăng ký ADMIN công khai.
 
@@ -188,6 +188,29 @@ API: POST `/api/v1/bookings`, GET `/api/v1/bookings/my`, GET `/api/v1/bookings/{
 
 Mặc định giữ ghế 600 giây, không quá giờ khởi hành; cấu hình `BOOKING_HOLD_SECONDS` trong khoảng 30–1800. Scheduler bật mặc định, chạy mỗi 30000 ms (`BOOKING_EXPIRY_ENABLED`, `BOOKING_EXPIRY_POLL_MILLISECONDS`). POST cũng giải phóng hold hết hạn ngay trong transaction. Khi GET trả `holdExpired=true`, hold đã mất hiệu lực dù status còn chờ scheduler cập nhật. Không hủy đơn PAID trong P4.
 
+## P5 React Customer
+
+Chạy backend ở terminal riêng theo hướng dẫn trên, rồi:
+
+```powershell
+cd frontend
+npm ci
+npm run dev
+```
+
+Mở [http://127.0.0.1:5173](http://127.0.0.1:5173). Cần Node 24+. Vite chuyển /api đến backend localhost:8080; URL khác cấu hình trong frontend/.env.local theo [frontend README](frontend/README.md).
+
+Luồng: tìm chuyến → chọn ghế → đăng nhập → tạo đơn giữ chỗ → xem lịch sử/chi tiết → hủy hoặc hết hạn. Token lưu trong sessionStorage theo tab; reload xác minh /me, 401/hết hạn yêu cầu đăng nhập lại. Không tự gửi lại POST khi gặp lỗi.
+
+Backend CORS chỉ mở cho origin cụ thể trong APP_CORS_ALLOWED_ORIGINS, mặc định localhost và 127.0.0.1 cổng 5173; không dùng wildcard/cookie credentials. Không đưa secret vào biến VITE_*. Preview/production cần reverse proxy hoặc API URL và CORS phù hợp.
+
+```powershell
+# lint + unit tests + production build + Java tests + HTTP + browser E2E trên cluster riêng
+.\scripts\Test-P5.ps1 -JavaHome 'C:\Program Files\Java\jdk-21.0.12' -Offline
+```
+
+Edge đã cài được dùng cho browser tests. Ảnh desktop/mobile và bằng chứng ở .local/p5-*/. Không chạy E2E trên database có dữ liệu người dùng thật.
+
 ## Database và migration
 
 - Flyway V1 tạo `users`, `routes`, `vehicles`, `seats`, `trips`, `bookings`, `booking_seats`, `payments`, `tickets`.
@@ -221,5 +244,7 @@ FROM users GROUP BY lower(btrim(email)) HAVING count(*) > 1;
 - [Báo cáo kiểm chứng P3](docs/P3-report.md)
 - [Contract Booking API](docs/booking-api.md)
 - [Báo cáo kiểm chứng P4](docs/P4-report.md)
+- [Frontend README](frontend/README.md)
+- [Báo cáo kiểm chứng P5](docs/P5-report.md)
 
-WBS P4: `1.3.3.1` (tạo đơn, giữ ghế có hạn), `1.3.3.2` (chống đặt trùng, hủy đơn). Tiếp theo P5: React Customer; P6: VNPAY Sandbox, xác minh IPN và vé điện tử.
+Tiếp theo P6: VNPAY Sandbox, xác minh IPN và vé điện tử. P5 không tự xác nhận thanh toán từ giao diện.

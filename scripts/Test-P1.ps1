@@ -6,7 +6,8 @@ param(
     [switch]$Offline,
     [switch]$AuthSmoke,
     [switch]$CatalogSmoke,
-    [switch]$BookingSmoke
+    [switch]$BookingSmoke,
+    [switch]$FrontendSmoke
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,7 +21,7 @@ foreach ($binary in @($java, (Join-Path $PostgresBin 'initdb.exe'),
 }
 
 # Every run owns a new cluster, databases and application process. Existing services are untouched.
-$phase = if ($BookingSmoke) { 'P4' } elseif ($CatalogSmoke) { 'P3' } elseif ($AuthSmoke) { 'P2' } else { 'P1' }
+$phase = if ($FrontendSmoke) { 'P5' } elseif ($BookingSmoke) { 'P4' } elseif ($CatalogSmoke) { 'P3' } elseif ($AuthSmoke) { 'P2' } else { 'P1' }
 $run = Join-Path $root ('.local\' + $phase.ToLowerInvariant() + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))
 New-Item -ItemType Directory -Path $run -Force | Out-Null
 $socketDirectory = Join-Path $root '.local\sockets'
@@ -62,6 +63,7 @@ function Start-Application([int]$Attempt) {
     # Use a workspace-owned socket directory; TEMP can contain paths unusable by AF_UNIX on Windows.
     $arguments = @(('-Djdk.net.unixdomain.tmpdir="' + $socketDirectory + '"'),
         '-jar', ('"' + $jar + '"'), '--spring.profiles.active=dev')
+    if ($FrontendSmoke) { $arguments += '--booking.hold-seconds=30' }
     return Start-Process -FilePath $java -WindowStyle Hidden -PassThru `
         -ArgumentList $arguments `
         -RedirectStandardOutput (Join-Path $run "application-$Attempt.out.log") `
@@ -200,7 +202,8 @@ function Invoke-BookingSmoke([string]$AdminToken) {
 
 $variables = @('JAVA_HOME','DB_URL','DB_USERNAME','DB_PASSWORD','TEST_DB_URL',
     'TEST_DB_USERNAME','TEST_DB_PASSWORD','PGPASSWORD','SERVER_PORT','SPRING_PROFILES_ACTIVE','JWT_SECRET',
-    'BOOKING_HOLD_SECONDS','BOOKING_EXPIRY_ENABLED','BOOKING_EXPIRY_POLL_MILLISECONDS')
+    'BOOKING_HOLD_SECONDS','BOOKING_EXPIRY_ENABLED','BOOKING_EXPIRY_POLL_MILLISECONDS',
+    'API_PROXY_TARGET','E2E_PORT','TEST_ARTIFACT_DIR','APP_CORS_ALLOWED_ORIGINS')
 $previous = @{}
 foreach ($name in $variables) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 $dbPort = Get-FreePort
@@ -217,6 +220,12 @@ try {
     $env:BOOKING_HOLD_SECONDS = '600'
     $env:BOOKING_EXPIRY_ENABLED = 'true'
     $env:BOOKING_EXPIRY_POLL_MILLISECONDS = '1000'
+    $env:APP_CORS_ALLOWED_ORIGINS = 'http://localhost:5173,http://127.0.0.1:5173'
+    if ($FrontendSmoke) {
+        $env:E2E_PORT = [string](Get-FreePort)
+        while ($env:E2E_PORT -in @("$dbPort", "$httpPort")) { $env:E2E_PORT = [string](Get-FreePort) }
+        $env:APP_CORS_ALLOWED_ORIGINS += ",http://127.0.0.1:$($env:E2E_PORT)"
+    }
     Write-Output "$phase isolated verification: $run"
     Invoke-Native (Join-Path $PostgresBin 'initdb.exe') @('-D', $cluster, '-U', 'p1_runner',
         '--pwfile', $passwordFile, '--auth-local=scram-sha-256', '--auth-host=scram-sha-256',
@@ -251,11 +260,27 @@ try {
             if (($AuthSmoke -or $CatalogSmoke) -and $attempt -eq 1) { $smokeToken = Invoke-AuthSmoke }
             if ($CatalogSmoke -and $attempt -eq 1) { Invoke-CatalogSmoke $smokeToken }
             if ($BookingSmoke -and $attempt -eq 1) { $bookingSmokeResult = Invoke-BookingSmoke $smokeToken }
+            if ($FrontendSmoke -and $attempt -eq 1) {
+                $env:API_PROXY_TARGET = "http://127.0.0.1:$httpPort"
+                $env:TEST_ARTIFACT_DIR = Join-Path $run 'screenshots'
+                Push-Location (Join-Path $root 'frontend')
+                try {
+                    & npm.cmd run test:e2e
+                    if ($LASTEXITCODE -ne 0) { throw 'Frontend browser E2E failed' }
+                } finally { Pop-Location }
+            }
             if ($BookingSmoke -and $attempt -eq 2) {
                 $booking = Invoke-RestMethod -Uri "http://127.0.0.1:$httpPort/api/v1/bookings/$($bookingSmokeResult.BookingId)" `
                     -Headers @{Authorization='Bearer '+$bookingSmokeResult.Token}
-                if ($booking.status -ne 'PENDING' -or -not $booking.seats[0].active) { throw 'P4 booking failed after restart' }
-                Write-Output 'P4 HTTP smoke: pending booking and active hold persisted across restart.'
+                if ($FrontendSmoke) {
+                    if ($booking.status -notin @('PENDING','EXPIRED')) { throw 'P5 booking failed after restart' }
+                    if ($booking.status -eq 'PENDING' -and -not $booking.seats[0].active) { throw 'P5 active hold mismatch' }
+                    if ($booking.status -eq 'EXPIRED' -and $booking.seats[0].active) { throw 'P5 expired hold mismatch' }
+                    Write-Output 'P5 HTTP smoke: booking persisted and expiry remained consistent after restart.'
+                } else {
+                    if ($booking.status -ne 'PENDING' -or -not $booking.seats[0].active) { throw 'P4 booking failed after restart' }
+                    Write-Output 'P4 HTTP smoke: pending booking and active hold persisted across restart.'
+                }
             }
             if (($AuthSmoke -or $CatalogSmoke) -and $attempt -eq 2) {
                 $profile = Invoke-RestMethod -Uri "http://127.0.0.1:$httpPort/api/v1/auth/me" `
@@ -284,6 +309,7 @@ try {
         authHttpSmoke = [bool]($AuthSmoke -or $CatalogSmoke)
         catalogHttpSmoke = [bool]$CatalogSmoke
         bookingHttpSmoke = [bool]$BookingSmoke
+        frontendBrowserSmoke = [bool]$FrontendSmoke
     }
     $result | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $run 'verification.json') -Encoding utf8
     Write-Output "$phase verification PASSED. Temporary application and database will now stop."

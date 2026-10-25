@@ -8,3 +8,8 @@ spring:
     password: ${TEST_DB_PASSWORD}
     hikari:
       maximum-pool-size: 4
+
+security:
+  jwt:
+    # Public test fixture, never accepted as the runtime signing key.
+    secret: ${TEST_JWT_SECRET:dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyaW4tbGVuZ3RoISE=}

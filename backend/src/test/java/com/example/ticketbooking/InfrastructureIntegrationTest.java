@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.FlywayException;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -25,10 +27,42 @@ class InfrastructureIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired Flyway flyway;
+    @Autowired DataSource dataSource;
+
+    @Test
+    void upgradeFromV1NormalizesExistingEmailWithoutChangingAccount() {
+        String schema = "p2_upgrade_" + java.util.UUID.randomUUID().toString().replace("-", "");
+        jdbc.execute("CREATE SCHEMA " + schema);
+        try {
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).target("1").load().migrate();
+            jdbc.update("INSERT INTO " + schema + ".users(full_name,email,password_hash) VALUES (?,?,?)",
+                    "Existing user", "  EXISTING@EXAMPLE.INVALID  ", "existing-hash");
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).load().migrate();
+            assertThat(jdbc.queryForObject("SELECT email FROM " + schema + ".users", String.class))
+                    .isEqualTo("existing@example.invalid");
+            assertThat(jdbc.queryForObject("SELECT password_hash FROM " + schema + ".users", String.class))
+                    .isEqualTo("existing-hash");
+        } finally { jdbc.execute("DROP SCHEMA " + schema + " CASCADE"); }
+    }
+
+    @Test
+    void upgradeCollisionFailsAtomicallyAndPreservesBothExistingAccounts() {
+        String schema = "p2_collision_" + java.util.UUID.randomUUID().toString().replace("-", "");
+        jdbc.execute("CREATE SCHEMA " + schema);
+        try {
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).target("1").load().migrate();
+            jdbc.update("INSERT INTO " + schema + ".users(full_name,email,password_hash) VALUES (?,?,?),(?,?,?)",
+                    "First", "Dupe@example.invalid", "first-hash", "Second", "dupe@example.invalid", "second-hash");
+            assertThatThrownBy(() -> Flyway.configure().dataSource(dataSource).schemas(schema)
+                    .defaultSchema(schema).load().migrate()).isInstanceOf(FlywayException.class);
+            assertThat(jdbc.queryForList("SELECT email FROM " + schema + ".users", String.class))
+                    .containsExactlyInAnyOrder("Dupe@example.invalid", "dupe@example.invalid");
+        } finally { jdbc.execute("DROP SCHEMA " + schema + " CASCADE"); }
+    }
 
     @Test
     void migrationCreatesAllNineBusinessTables() {
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("2");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         assertThat(jdbc.queryForList("""
                 SELECT table_name FROM information_schema.tables
@@ -58,7 +92,7 @@ class InfrastructureIntegrationTest {
 
     @Test
     @WithMockUser(roles = "CUSTOMER")
-    void authenticatedRequestsAreDeniedUntilP2DefinesTheirPermissions() throws Exception {
+    void customerCannotAccessAdminEndpoints() throws Exception {
         mvc.perform(get("/api/v1/admin/bookings"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));

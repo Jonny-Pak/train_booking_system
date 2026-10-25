@@ -3,7 +3,8 @@
 param(
     [string]$PostgresBin = 'C:\Program Files\PostgreSQL\18\bin',
     [string]$JavaHome = $env:JAVA_HOME,
-    [switch]$Offline
+    [switch]$Offline,
+    [switch]$AuthSmoke
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,7 +18,8 @@ foreach ($binary in @($java, (Join-Path $PostgresBin 'initdb.exe'),
 }
 
 # Every run owns a new cluster, databases and application process. Existing services are untouched.
-$run = Join-Path $root ('.local\p1-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))
+$phase = if ($AuthSmoke) { 'P2' } else { 'P1' }
+$run = Join-Path $root ('.local\' + $phase.ToLowerInvariant() + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))
 New-Item -ItemType Directory -Path $run -Force | Out-Null
 $socketDirectory = Join-Path $root '.local\sockets'
 New-Item -ItemType Directory -Path $socketDirectory -Force | Out-Null
@@ -78,8 +80,40 @@ function Wait-Healthy($Process) {
     throw "Health never became UP. Inspect logs in $run"
 }
 
+function Invoke-AuthSmoke {
+    $base = "http://127.0.0.1:$httpPort/api/v1"
+    $email = 'p2-smoke@example.invalid'
+    $credential = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(16))
+    $body = @{fullName='P2 Smoke'; email=$email; password=$credential} | ConvertTo-Json -Compress
+    $registered = Invoke-RestMethod -Method Post -Uri "$base/auth/register" -ContentType 'application/json' `
+        -Body $body -StatusCodeVariable responseStatus
+    if ($responseStatus -ne 201 -or $registered.role -ne 'CUSTOMER') { throw 'Register HTTP smoke failed' }
+    $duplicate = Invoke-RestMethod -Method Post -Uri "$base/auth/register" -ContentType 'application/json' `
+        -Body $body -SkipHttpErrorCheck -StatusCodeVariable responseStatus
+    if ($responseStatus -ne 409 -or $duplicate.code -ne 'EMAIL_ALREADY_EXISTS') { throw 'Duplicate HTTP smoke failed' }
+    $loginBody = @{email=$email; password=$credential} | ConvertTo-Json -Compress
+    $login = Invoke-RestMethod -Method Post -Uri "$base/auth/login" -ContentType 'application/json' -Body $loginBody
+    if ($login.tokenType -ne 'Bearer' -or -not $login.accessToken) { throw 'Login HTTP smoke failed' }
+    $headers = @{Authorization='Bearer '+$login.accessToken}
+    $profile = Invoke-RestMethod -Uri "$base/auth/me" -Headers $headers
+    if ($profile.email -ne $email -or $profile.role -ne 'CUSTOMER') { throw 'Profile HTTP smoke failed' }
+    $unauthorized = Invoke-RestMethod -Uri "$base/auth/me" -SkipHttpErrorCheck -StatusCodeVariable responseStatus
+    if ($responseStatus -ne 401) { throw 'Missing-token HTTP smoke failed' }
+    $denied = Invoke-RestMethod -Uri "$base/admin/bookings" -Headers $headers -SkipHttpErrorCheck -StatusCodeVariable responseStatus
+    if ($responseStatus -ne 403) { throw 'Customer admin-denial HTTP smoke failed' }
+    # Only this isolated disposable database is promoted, never a real user's database.
+    $null = & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $dbPort -U p1_runner `
+        -d p1_dev -v ON_ERROR_STOP=1 -c "UPDATE users SET role = 'ADMIN' WHERE email = 'p2-smoke@example.invalid';"
+    if ($LASTEXITCODE -ne 0) { throw 'Test admin promotion failed' }
+    $profile = Invoke-RestMethod -Uri "$base/auth/me" -Headers $headers
+    if ($profile.role -ne 'ADMIN') { throw 'Database role refresh HTTP smoke failed' }
+    $login = Invoke-RestMethod -Method Post -Uri "$base/auth/login" -ContentType 'application/json' -Body $loginBody
+    Write-Host 'P2 HTTP smoke: register, duplicate, login, me, 401, CUSTOMER 403 and ADMIN profile passed.'
+    return $login.accessToken
+}
+
 $variables = @('JAVA_HOME','DB_URL','DB_USERNAME','DB_PASSWORD','TEST_DB_URL',
-    'TEST_DB_USERNAME','TEST_DB_PASSWORD','PGPASSWORD','SERVER_PORT','SPRING_PROFILES_ACTIVE')
+    'TEST_DB_USERNAME','TEST_DB_PASSWORD','PGPASSWORD','SERVER_PORT','SPRING_PROFILES_ACTIVE','JWT_SECRET')
 $previous = @{}
 foreach ($name in $variables) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 $dbPort = Get-FreePort
@@ -92,7 +126,8 @@ try {
     $env:JAVA_HOME = $JavaHome
     Remove-Item Env:SPRING_PROFILES_ACTIVE -ErrorAction SilentlyContinue
     $env:PGPASSWORD = $password
-    Write-Output "P1 isolated verification: $run"
+    $env:JWT_SECRET = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+    Write-Output "$phase isolated verification: $run"
     Invoke-Native (Join-Path $PostgresBin 'initdb.exe') @('-D', $cluster, '-U', 'p1_runner',
         '--pwfile', $passwordFile, '--auth-local=scram-sha-256', '--auth-host=scram-sha-256',
         '--encoding=UTF8', '--locale=C')
@@ -123,10 +158,18 @@ try {
         foreach ($attempt in @(1,2)) {
             $application = Start-Application $attempt
             Wait-Healthy $application
+            if ($AuthSmoke -and $attempt -eq 1) { $smokeToken = Invoke-AuthSmoke }
+            if ($AuthSmoke -and $attempt -eq 2) {
+                $profile = Invoke-RestMethod -Uri "http://127.0.0.1:$httpPort/api/v1/auth/me" `
+                    -Headers @{Authorization='Bearer '+$smokeToken}
+                if ($profile.role -ne 'ADMIN') { throw 'Token failed after application restart' }
+                Write-Output 'P2 HTTP smoke: Bearer token remained valid after restart.'
+            }
             $count = & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $dbPort -U p1_runner `
                 -d p1_dev -At -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM flyway_schema_history WHERE success;'
-            if ($LASTEXITCODE -ne 0 -or "$count".Trim() -ne '1') { throw 'Unexpected Flyway history' }
-            Write-Output "Application launch ${attempt}: health UP; one successful migration."
+            $expectedMigrations = @(Get-ChildItem -LiteralPath (Join-Path $backend 'src\main\resources\db\migration') -Filter 'V*__*.sql').Count
+            if ($LASTEXITCODE -ne 0 -or "$count".Trim() -ne "$expectedMigrations") { throw 'Unexpected Flyway history' }
+            Write-Output "Application launch ${attempt}: health UP; $expectedMigrations successful migrations."
             Stop-Process -Id $application.Id -ErrorAction Stop
             $application.WaitForExit()
             $application = $null
@@ -136,13 +179,14 @@ try {
         verifiedAt = [DateTime]::UtcNow.ToString('o')
         postgres = (& (Join-Path $PostgresBin 'postgres.exe') --version)
         build = 'clean verify passed'
-        firstLaunch = 'UP; V1 applied'
-        secondLaunch = 'UP; V1 unchanged'
+        firstLaunch = "UP; $expectedMigrations migrations applied"
+        secondLaunch = "UP; $expectedMigrations migrations unchanged"
         socketDirectory = $socketDirectory
-        scope = 'P1 only; no JWT, booking API or payment implementation'
+        scope = 'Backend infrastructure and auth tests; no booking API or payment implementation'
+        authHttpSmoke = [bool]$AuthSmoke
     }
     $result | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $run 'verification.json') -Encoding utf8
-    Write-Output 'P1 verification PASSED. Temporary application and database will now stop.'
+    Write-Output "$phase verification PASSED. Temporary application and database will now stop."
 } finally {
     if ($application -and -not $application.HasExited) { Stop-Process -Id $application.Id }
     if ($databaseStarted) { Invoke-PgControl 'stop' }

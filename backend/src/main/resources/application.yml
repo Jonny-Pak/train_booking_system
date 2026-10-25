@@ -25,9 +25,18 @@ spring:
     validate-on-migrate: true
   jackson:
     time-zone: UTC
+    deserialization:
+      fail-on-unknown-properties: true
   mvc:
     problemdetails:
       enabled: false
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: ticket-booking
+    audience: ticket-booking-api
+    access-token-seconds: ${JWT_ACCESS_TOKEN_SECONDS:900}
 
 server:
   port: ${SERVER_PORT:8080}

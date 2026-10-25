@@ -62,7 +62,7 @@ class InfrastructureIntegrationTest {
 
     @Test
     void migrationCreatesAllNineBusinessTables() {
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("3");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("4");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         assertThat(jdbc.queryForList("""
                 SELECT table_name FROM information_schema.tables

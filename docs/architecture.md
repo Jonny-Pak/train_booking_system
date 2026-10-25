@@ -2,7 +2,7 @@
 
 ## Phạm vi
 
-Một Spring Boot application và một PostgreSQL theo Modular Monolith. P1 dựng hạ tầng; P2 triển khai auth/user; P3 triển khai route/vehicle/trip. Chưa có frontend hoặc API tạo booking.
+Một Spring Boot application và một PostgreSQL theo Modular Monolith. P1 dựng hạ tầng; P2 triển khai auth/user; P3 triển khai route/vehicle/trip; P4 triển khai booking và giữ ghế. Chưa có frontend, payment hoặc phát hành vé.
 
 Stack khóa: Java 21, Spring Boot 3.5.16, Maven Wrapper 3.9.12, Spring Data JPA/Hibernate, Flyway Core và module PostgreSQL 11.20.3. Dependency versions lấy từ Spring Boot BOM, ngoại trừ Flyway được khóa đồng bộ core/module ở 11.20.3 để hỗ trợ PostgreSQL 18 đang có trên máy. Bản mặc định của Boot cảnh báo chỉ được kiểm chứng đến PostgreSQL 17.
 
@@ -38,29 +38,41 @@ ADMIN CRUD tuyến/phương tiện/ghế/chuyến. Search dùng JPQL trong TripQ
 
 Code ưu tiên cách viết dễ đọc cho đồ án: mỗi câu lệnh một dòng, if/else rõ ràng, vòng lặp for để chuyển danh sách sang DTO, tên biến thể hiện ý nghĩa. Không dùng Specification/Criteria hoặc chuỗi stream cho nghiệp vụ catalog. Các transaction và khóa PostgreSQL vẫn cần thiết để kiểm tra lịch chuyến an toàn khi có nhiều request đồng thời.
 
-Trạng thái ghế đọc booking_seats và bookings: active + PAID là BOOKED; active + PENDING còn hạn là HELD; còn lại AVAILABLE. GET không thay đổi dữ liệu và không bảo đảm ghế sẽ còn trống ở lần đặt sau. P4 phải kiểm tra/release hết hạn trong transaction trước khi giữ ghế.
+Trạng thái ghế đọc booking_seats và bookings: active + PAID là BOOKED; active + PENDING còn hạn là HELD; còn lại AVAILABLE. GET không thay đổi dữ liệu và không bảo đảm ghế sẽ còn trống ở lần đặt sau. P4 kiểm tra/release hết hạn trong transaction trước khi giữ ghế.
 
 Các ghi catalog ít và chỉ dành cho admin nên dùng một `pg_advisory_xact_lock(713003)` cho toàn bộ catalog services. Điều này đơn giản hóa thứ tự ghi và ngăn hai request đồng thời vượt qua kiểm tra lịch trống, kể cả nhiều instance. Không giữ khóa qua HTTP bên ngoài. Khóa chỉ tuần tự hóa ghi catalog, không khóa toàn bộ bảng hoặc chặn tìm kiếm.
 
-Trip update/delete còn khóa hàng Trip; thay đổi route/vehicle/seat layout khóa các Trip liên quan theo ID trước khi kiểm tra bookings. P4 cần dùng cùng khóa Trip trước khi tạo booking để tránh chạy đua với đổi/xóa metadata. P3 dùng JDBC cho các kiểm tra history/row lock, chưa tạo Booking entity trước P4.
+Trip update/delete còn khóa hàng Trip; thay đổi route/vehicle/seat layout khóa các Trip liên quan theo ID trước khi kiểm tra bookings. P4 dùng cùng khóa Trip trước khi tạo booking để tránh chạy đua với đổi/xóa metadata. Các kiểm tra history/row lock catalog vẫn dùng JDBC; Booking/BookingSeat được map bằng JPA ở P4.
 
 Khoảng lịch `[departureAt, arrivalAt)` không được chồng cho cùng phương tiện; CANCELLED không chiếm lịch. Quy tắc này được bảo vệ bởi service và transaction lock, chưa có exclusion constraint cho SQL ghi trực tiếp. Không cần btree_gist/extension mới. SQL seed chỉ chạy rõ ràng trên database demo.
 
-Giữ lịch sử: route có trips chỉ được đổi active, không đổi endpoints; vehicle có trips không đổi type; không xóa route/vehicle có references. Trip có booking history chặn toàn bộ sửa/xóa; vehicle có booking history chặn mọi thêm/sửa/xóa ghế. Vehicle code/display name/active vẫn chỉnh được; booking snapshot và chính sách chi tiết được triển khai ở P4.
+Giữ lịch sử: route có trips chỉ được đổi active, không đổi endpoints; vehicle có trips không đổi type; không xóa route/vehicle có references. Trip có booking history chặn toàn bộ sửa/xóa; vehicle có booking history chặn mọi thêm/sửa/xóa ghế. Vehicle code/display name/active vẫn chỉnh được. P4 lưu snapshot giá ghế; tên/mã phương tiện hiển thị ở catalog là giá trị hiện tại.
 
 Trip mới phải SCHEDULED, tương lai, có route/vehicle active và phương tiện có ghế. SCHEDULED có thể đổi lịch hoặc chuyển CANCELLED/COMPLETED nếu chưa có booking; COMPLETED yêu cầu giờ đến cũ và mới đã qua. CANCELLED/COMPLETED không sửa tiếp; có thể xóa nếu không có booking. Xóa không cascade vào dữ liệu lịch sử.
 
 `ddl-auto=validate`; Flyway `clean` bị vô hiệu hóa; không tự baseline schema có sẵn. Connection và Hibernate dùng UTC. Tiền dùng `NUMERIC(12,2)` và sẽ map sang `BigDecimal` khi triển khai entity.
 
-Tính duy nhất active `(trip_id, seat_id)` chỉ bảo vệ hàng có `is_active=true`; không tự giải phóng hold theo thời gian. SQL chưa bảo đảm booking có ghế, tổng tiền đúng, vé chỉ phát hành sau PAID hoặc liên kết trạng thái giữa payment và booking. Các invariant này cần service và integration test ở P4/P6.
+Tính duy nhất active `(trip_id, seat_id)` chỉ bảo vệ hàng có `is_active=true`; không tự giải phóng hold theo thời gian. P4 service và integration tests bảo đảm đơn có ghế, tổng tiền đúng, hủy/hết hạn nguyên tử. Liên kết trạng thái payment/booking và phát hành vé chỉ sau PAID thuộc P6.
+
+## Booking P4
+
+BookingService giữ transaction ngắn: khóa Trip → đọc và kiểm tra chuyến/ghế → khóa các Booking PENDING hết hạn theo ID → chuyển EXPIRED và release ghế → kiểm tra active → insert Booking và snapshot BookingSeat. Flush release trước insert để không vướng partial unique index cũ. Nếu bước sau thất bại, toàn bộ transaction (kể cả cleanup expiry) rollback; request/scheduler sau sẽ thử cleanup lại.
+
+Khóa Trip được lấy bằng SELECT FOR UPDATE trước khi đọc entity; thời điểm now được lấy sau khi khóa để không dùng thời gian đã cũ khi chờ. Booking P4 dùng ID scalar cho user/trip/vehicle; DB vẫn áp dụng đầy đủ các FK kép V1. BookingSeat liên kết Seat lazy và tải ghế bằng EntityGraph khi tạo response. Giới hạn 10 ghế mỗi đơn; giá snapshot BigDecimal từ database; hold mặc định 600 giây và chặn tại departureAt.
+
+Cancel đọc trip_id qua JDBC, khóa Trip rồi khóa Booking, kiểm tra owner/ADMIN, xử lý expiry trước khi chuyển PENDING còn hạn thành CANCELLED. Cancel lặp trả trạng thái hiện tại; PAID trả 409. Không xóa booking history và không có endpoint tự đặt PAID.
+
+BookingExpiryScheduler chạy mỗi 30 giây, lấy tối đa 100 trip ID có hold hết hạn; gọi BookingExpiryService qua Spring bean để mỗi trip có transaction riêng. Các instance cùng khóa Trip nên cleanup lặp an toàn. Test profile tắt lịch chạy nền để kiểm thử thời gian chủ động; HTTP smoke vẫn chạy scheduler thật. App restart tiếp tục dọn đơn quá hạn từ dữ liệu PostgreSQL, không dựa vào timer giữ trong RAM.
+
+GET history/detail không ghi database. Field holdExpired phản ánh thời gian; status/active có thể chờ lượt scheduler để lưu EXPIRED/inactive. Tạo đơn và cancel luôn kiểm tra lại deadline trong transaction. Admin filter áp dụng status đã lưu. P6 phải kiểm tra trạng thái và deadline dưới cùng khóa trước khi chấp nhận payment, không tin riêng response GET.
+
+V4 chỉ thêm indexes history theo user và cho admin; không sửa V1/V2/V3, không thêm bảng. API history dùng page tối đa 100 và một truy vấn ghế cho mỗi booking để giữ code đơn giản; khi cần lưu lượng lớn có thể tải ghế theo batch.
 
 ## Quyết định cho các pha sau
 
 Các mục sau là thiết kế, chưa được triển khai:
 
-- P4 khóa theo chuyến; thứ tự khóa thống nhất Trip → Booking → Payment, transaction ngắn.
-- Expiry/cancel cập nhật booking và toàn bộ booking seats trong cùng transaction.
-- Booking PAID giữ ghế active. Không hủy PAID khi chưa có hoàn tiền.
+- P6 tiếp tục thứ tự khóa đã dùng ở P4: Trip → Booking → Payment.
 - P6 IPN xác minh chữ ký, merchant, txn_ref, amount và trạng thái; khóa và xử lý idempotent.
 - Payment, booking và tickets được cập nhật atomically; Return không phát hành vé.
 - IPN thành công đến sau expiry/cancel không lấy lại ghế; cần đối soát. Xem xét migration bổ sung dấu hiệu đối soát ở P6.

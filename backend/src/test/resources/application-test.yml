@@ -9,6 +9,11 @@ spring:
     hikari:
       maximum-pool-size: 4
 
+booking:
+  hold-seconds: 600
+  expiry:
+    enabled: false
+
 security:
   jwt:
     # Public test fixture, never accepted as the runtime signing key.

@@ -1,4 +1,4 @@
-# Contract API P2
+# Contract API Auth và Health
 
 ## Endpoint hiện tại
 
@@ -9,7 +9,7 @@
 | POST | `/api/v1/auth/login` | Public | 200 JWT và hồ sơ |
 | GET | `/api/v1/auth/me` | CUSTOMER/ADMIN | 200 hồ sơ theo JWT subject |
 
-Prefix `/api/v1/admin/**` yêu cầu ADMIN, chưa có CRUD trong P2. Endpoint còn lại chưa được mở. Health không lộ components/details. Authentication stateless, không có tài khoản mặc định hoặc cookie session.
+Prefix `/api/v1/admin/**` yêu cầu ADMIN. CRUD Catalog/Trip và các GET trip public của P3 được mô tả tại [catalog-api.md](catalog-api.md). Endpoint còn lại chưa được mở. Health không lộ components/details. Authentication stateless, không có tài khoản mặc định hoặc cookie session.
 
 ## Register
 

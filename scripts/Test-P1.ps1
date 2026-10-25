@@ -4,7 +4,8 @@ param(
     [string]$PostgresBin = 'C:\Program Files\PostgreSQL\18\bin',
     [string]$JavaHome = $env:JAVA_HOME,
     [switch]$Offline,
-    [switch]$AuthSmoke
+    [switch]$AuthSmoke,
+    [switch]$CatalogSmoke
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,7 +19,7 @@ foreach ($binary in @($java, (Join-Path $PostgresBin 'initdb.exe'),
 }
 
 # Every run owns a new cluster, databases and application process. Existing services are untouched.
-$phase = if ($AuthSmoke) { 'P2' } else { 'P1' }
+$phase = if ($CatalogSmoke) { 'P3' } elseif ($AuthSmoke) { 'P2' } else { 'P1' }
 $run = Join-Path $root ('.local\' + $phase.ToLowerInvariant() + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))
 New-Item -ItemType Directory -Path $run -Force | Out-Null
 $socketDirectory = Join-Path $root '.local\sockets'
@@ -112,6 +113,40 @@ function Invoke-AuthSmoke {
     return $login.accessToken
 }
 
+function Invoke-CatalogSmoke([string]$Token) {
+    $base = "http://127.0.0.1:$httpPort/api/v1"
+    $headers = @{Authorization='Bearer '+$Token}
+    $route = Invoke-RestMethod -Method Post -Uri "$base/admin/routes" -Headers $headers -ContentType 'application/json' `
+        -Body (@{origin='P3 HTTP origin';destination='P3 HTTP destination';active=$true}|ConvertTo-Json)
+    $vehicle = Invoke-RestMethod -Method Post -Uri "$base/admin/vehicles" -Headers $headers -ContentType 'application/json' `
+        -Body (@{vehicleCode='HTTP-P3-BUS';vehicleType='BUS';displayName='P3 HTTP bus';active=$true}|ConvertTo-Json)
+    $seat = Invoke-RestMethod -Method Post -Uri "$base/admin/vehicles/$($vehicle.id)/seats" -Headers $headers -ContentType 'application/json' `
+        -Body (@{seatCode='A1';seatClass='STANDARD'}|ConvertTo-Json)
+    $departure = [DateTimeOffset]::UtcNow.AddDays(3)
+    $tripBody = @{routeId=$route.id;vehicleId=$vehicle.id;departureAt=$departure.ToString('o');arrivalAt=$departure.AddHours(2).ToString('o');basePrice=180000;status='SCHEDULED'} | ConvertTo-Json
+    $trip = Invoke-RestMethod -Method Post -Uri "$base/admin/trips" -Headers $headers -ContentType 'application/json' -Body $tripBody
+    $public = Invoke-RestMethod -Uri "$base/trips/$($trip.id)"
+    $seats = Invoke-RestMethod -Uri "$base/trips/$($trip.id)/seats"
+    $results = Invoke-RestMethod -Uri "$base/trips?origin=P3%20HTTP%20origin&size=1"
+    if ($public.id -ne $trip.id -or $seats[0].status -ne 'AVAILABLE' -or $results.totalElements -ne 1) { throw 'P3 public HTTP smoke failed' }
+    $overlap = Invoke-RestMethod -Method Post -Uri "$base/admin/trips" -Headers $headers -ContentType 'application/json' `
+        -Body $tripBody -SkipHttpErrorCheck -StatusCodeVariable responseStatus
+    if ($responseStatus -ne 409 -or $overlap.code -ne 'VEHICLE_SCHEDULE_CONFLICT') { throw 'P3 overlap HTTP smoke failed' }
+    # Exercise deletes only on the records this smoke function just created.
+    $null = Invoke-RestMethod -Method Delete -Uri "$base/admin/trips/$($trip.id)" -Headers $headers
+    $null = Invoke-RestMethod -Method Delete -Uri "$base/admin/vehicles/$($vehicle.id)/seats/$($seat.id)" -Headers $headers
+    $null = Invoke-RestMethod -Method Delete -Uri "$base/admin/vehicles/$($vehicle.id)" -Headers $headers
+    $null = Invoke-RestMethod -Method Delete -Uri "$base/admin/routes/$($route.id)" -Headers $headers
+    $seed = Join-Path $root 'database\02_demo_seed.sql'
+    foreach ($attempt in @(1,2)) {
+        $null = & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $dbPort -U p1_runner -d p1_dev -v ON_ERROR_STOP=1 -f $seed
+        if ($LASTEXITCODE -ne 0) { throw 'Demo seed failed' }
+    }
+    $demo = Invoke-RestMethod -Uri "$base/trips?origin=$([uri]::EscapeDataString('Hà Nội'))"
+    if ($demo.totalElements -ne 1 -or $demo.content[0].vehicleCode -ne 'DEMO-P3-BUS-01') { throw 'Demo search failed or seed was not idempotent' }
+    Write-Output 'P3 HTTP smoke: catalog CRUD, public search/detail/seats, overlap 409 and repeated demo seed passed.'
+}
+
 $variables = @('JAVA_HOME','DB_URL','DB_USERNAME','DB_PASSWORD','TEST_DB_URL',
     'TEST_DB_USERNAME','TEST_DB_PASSWORD','PGPASSWORD','SERVER_PORT','SPRING_PROFILES_ACTIVE','JWT_SECRET')
 $previous = @{}
@@ -158,8 +193,9 @@ try {
         foreach ($attempt in @(1,2)) {
             $application = Start-Application $attempt
             Wait-Healthy $application
-            if ($AuthSmoke -and $attempt -eq 1) { $smokeToken = Invoke-AuthSmoke }
-            if ($AuthSmoke -and $attempt -eq 2) {
+            if (($AuthSmoke -or $CatalogSmoke) -and $attempt -eq 1) { $smokeToken = Invoke-AuthSmoke }
+            if ($CatalogSmoke -and $attempt -eq 1) { Invoke-CatalogSmoke $smokeToken }
+            if (($AuthSmoke -or $CatalogSmoke) -and $attempt -eq 2) {
                 $profile = Invoke-RestMethod -Uri "http://127.0.0.1:$httpPort/api/v1/auth/me" `
                     -Headers @{Authorization='Bearer '+$smokeToken}
                 if ($profile.role -ne 'ADMIN') { throw 'Token failed after application restart' }
@@ -182,8 +218,9 @@ try {
         firstLaunch = "UP; $expectedMigrations migrations applied"
         secondLaunch = "UP; $expectedMigrations migrations unchanged"
         socketDirectory = $socketDirectory
-        scope = 'Backend infrastructure and auth tests; no booking API or payment implementation'
-        authHttpSmoke = [bool]$AuthSmoke
+        scope = 'Infrastructure, auth and catalog tests; no booking API or payment implementation'
+        authHttpSmoke = [bool]($AuthSmoke -or $CatalogSmoke)
+        catalogHttpSmoke = [bool]$CatalogSmoke
     }
     $result | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $run 'verification.json') -Encoding utf8
     Write-Output "$phase verification PASSED. Temporary application and database will now stop."

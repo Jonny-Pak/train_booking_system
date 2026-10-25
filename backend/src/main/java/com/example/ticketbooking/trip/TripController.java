@@ -31,6 +31,12 @@ public class TripController {
         return service.publicDetail(id);
     }
 
+    @GetMapping("/locations")
+    public List<LocationRouteResponse> locations(@RequestParam(required = false) VehicleType vehicleType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return service.publicLocations(vehicleType, date);
+    }
+
     @GetMapping("/{id}/seats")
     public List<TripSeatResponse> seats(@PathVariable long id) {
         return service.publicSeats(id);

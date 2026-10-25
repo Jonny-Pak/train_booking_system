@@ -73,6 +73,27 @@ public class TripQueryRepository {
         return findPage(where.toString(), parameters, pageable);
     }
 
+    public List<LocationRouteResponse> publicLocations(VehicleType vehicleType, Instant now,
+                                                       Instant dayStart, Instant dayEnd) {
+        String sql = """
+                select distinct new com.example.ticketbooking.trip.LocationRouteResponse(t.route.origin, t.route.destination)
+                from Trip t where t.route.active = true and t.vehicle.active = true
+                and t.status = :status and t.departureAt > :now
+                """;
+        if (vehicleType != null) sql += " and t.vehicle.vehicleType = :vehicleType";
+        if (dayStart != null) sql += " and t.departureAt >= :dayStart and t.departureAt < :dayEnd";
+        sql += " order by t.route.origin, t.route.destination";
+        var query = entityManager.createQuery(sql, LocationRouteResponse.class);
+        query.setParameter("status", TripStatus.SCHEDULED);
+        query.setParameter("now", now);
+        if (vehicleType != null) query.setParameter("vehicleType", vehicleType);
+        if (dayStart != null) {
+            query.setParameter("dayStart", dayStart);
+            query.setParameter("dayEnd", dayEnd);
+        }
+        return query.getResultList();
+    }
+
     private Page<Trip> findPage(String where, Map<String, Object> parameters, Pageable pageable) {
         String select = "select t from Trip t join fetch t.route join fetch t.vehicle ";
         String sort = " order by t.departureAt, t.id";

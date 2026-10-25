@@ -7,6 +7,7 @@ Base path `/api/v1`. ADMIN cần JWT Bearer theo auth contract. Các ví dụ ID
 | Method | Path | Quyền | Kết quả |
 |---|---|---|---|
 | GET | `/trips` | Public | Page chuyến đang mở bán |
+| GET | `/trips/locations` | Public | Array cặp điểm đi/đến có chuyến tương lai đang hoạt động |
 | GET | `/trips/{id}` | Public | Chi tiết chuyến đang mở bán |
 | GET | `/trips/{id}/seats` | Public | Array ghế và trạng thái |
 | GET/POST | `/admin/routes` | ADMIN | Page tuyến / tạo tuyến |

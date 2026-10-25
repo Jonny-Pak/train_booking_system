@@ -273,6 +273,42 @@ class CatalogIntegrationTest {
         long trip = create(ADMIN + "/trips", tripBody(route, vehicle, "2030-01-02T01:00:00Z", "2030-01-02T03:00:00Z"));
         return new Fixture(route, vehicle, seat, trip);
     }
+
+    @Test
+    void locationSuggestionsArePublicDistinctAndFilteredByVehicleAndVietnameseDate() throws Exception {
+        Fixture bus = fixture();
+        rawTrip(bus, "2030-01-03T01:00:00Z", "2030-01-03T03:00:00Z", "SCHEDULED");
+        long trainRoute = create(ADMIN + "/routes", routeBody("Hồ Chí Minh", "Phan Thiết", true));
+        long train = vehicle("TRAIN"); seat(train, "T1");
+        create(ADMIN + "/trips", tripBody(trainRoute, train, "2030-01-02T16:59:00Z", "2030-01-02T18:00:00Z"));
+        mvc.perform(get("/api/v1/trips/locations").with(anonymous())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(get("/api/v1/trips/locations").with(anonymous()).param("vehicleType", "BUS").param("date", "2030-01-03"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].origin").value("Hanoi")).andExpect(jsonPath("$[0].destination").value("Hai Phong"));
+        mvc.perform(get("/api/v1/trips/locations").with(anonymous()).param("vehicleType", "TRAIN").param("date", "2030-01-02"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(get("/api/v1/trips/locations").with(anonymous()).param("vehicleType", "TRAIN").param("date", "2030-01-03"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/v1/trips/locations").with(anonymous()).param("vehicleType", "PLANE"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void locationsExcludeInactiveRoutesVehiclesAndTripsThatArePastOrClosed() throws Exception {
+        Fixture fixture = fixture();
+        jdbc.update("UPDATE trips SET status='CANCELLED' WHERE id=?", fixture.trip());
+        mvc.perform(get("/api/v1/trips/locations").with(anonymous())).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        jdbc.update("UPDATE trips SET status='SCHEDULED' WHERE id=?", fixture.trip());
+        jdbc.update("UPDATE routes SET active=false WHERE id=?", fixture.route());
+        mvc.perform(get("/api/v1/trips/locations").with(anonymous())).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        jdbc.update("UPDATE routes SET active=true WHERE id=?", fixture.route());
+        jdbc.update("UPDATE vehicles SET active=false WHERE id=?", fixture.vehicle());
+        mvc.perform(get("/api/v1/trips/locations").with(anonymous())).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        jdbc.update("UPDATE vehicles SET active=true WHERE id=?", fixture.vehicle());
+        jdbc.update("UPDATE trips SET departure_at=?,arrival_at=? WHERE id=?", java.sql.Timestamp.from(NOW.minusSeconds(3600)), java.sql.Timestamp.from(NOW), fixture.trip());
+        mvc.perform(get("/api/v1/trips/locations").with(anonymous())).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+    }
     private long vehicle(String type) throws Exception { return create(ADMIN + "/vehicles", vehicleBody(UUID.randomUUID().toString(), type, true)); }
     private long seat(long vehicle, String code) throws Exception { return create(ADMIN + "/vehicles/" + vehicle + "/seats", Map.of("seatCode", code, "seatClass", "STANDARD")); }
     private long create(String path, Object body) throws Exception { return json(request(post(path), body).andExpect(status().isCreated()).andReturn()).get("id").asLong(); }

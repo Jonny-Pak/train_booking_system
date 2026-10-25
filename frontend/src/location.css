@@ -1,0 +1,93 @@
+.location-field {
+  position: relative;
+  min-width: 0;
+}
+.location-field > label {
+  height: 100%;
+  cursor: text;
+}
+.location-field:focus-within > label {
+  box-shadow: inset 0 -3px #2474e5;
+}
+.reference-fields .location-field input:focus-visible {
+  outline: none;
+}
+.location-popup {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 20;
+  width: max(100%, 340px);
+  max-width: calc(100vw - 64px);
+  padding: 12px 0;
+  border: 1px solid #e1e6ed;
+  border-radius: 10px;
+  background: white;
+  color: #253449;
+  box-shadow: 0 10px 30px #142d4c24;
+}
+.location-popup-title {
+  padding: 9px 20px 12px;
+  color: #8c95a2;
+  font-size: 13px;
+  font-weight: 650;
+}
+.location-popup [role="listbox"] {
+  max-height: 285px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.location-popup [role="option"] {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 20px;
+  border: 0;
+  background: white;
+  color: #4b5666;
+  text-align: left;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.location-popup [role="option"] svg {
+  color: #98a9be;
+  flex-shrink: 0;
+}
+.location-popup [role="option"]:hover,
+.location-popup [role="option"].highlighted {
+  background: #edf5ff;
+  color: #2474e5;
+}
+.location-popup [role="option"][aria-selected="true"] {
+  color: #2474e5;
+}
+.location-popup-message {
+  margin: 0;
+  padding: 12px 20px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #758297;
+}
+.location-popup-message button {
+  display: block;
+  background: transparent;
+  color: #2474e5;
+  border: 0;
+  padding: 8px 0;
+}
+@media (max-width: 600px) {
+  .destination-picker .location-popup {
+    left: auto;
+    right: 0;
+  }
+  .location-popup [role="option"] {
+    font-size: 14px;
+    padding: 12px 16px;
+  }
+  .location-popup [role="listbox"] {
+    max-height: 245px;
+  }
+}

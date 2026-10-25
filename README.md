@@ -249,6 +249,7 @@ Nếu backend đang chạy ở cổng 8080, chỉ giữ một phiên backend; kh
 - [Báo cáo kiểm chứng P1](docs/P1-report.md)
 - [Báo cáo kiểm chứng P2](docs/P2-report.md)
 - [Contract Catalog/Trip API](docs/catalog-api.md)
+- [Luồng chọn điểm đi và điểm đến](docs/location-picker.md)
 - [Báo cáo kiểm chứng P3](docs/P3-report.md)
 - [Contract Booking API](docs/booking-api.md)
 - [Báo cáo kiểm chứng P4](docs/P4-report.md)

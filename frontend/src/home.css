@@ -151,7 +151,7 @@
   background: white;
   border-radius: 14px;
   box-shadow: 0 10px 35px #02377324;
-  overflow: hidden;
+  overflow: visible;
 }
 .reference-tabs {
   display: flex;

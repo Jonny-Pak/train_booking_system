@@ -32,6 +32,8 @@ Chỉ biến `VITE_*` được đưa vào bundle trình duyệt: không đặt D
 | /login | Đăng nhập |
 | /register | Đăng ký CUSTOMER |
 | /verify-email | Xác nhận email từ link, gửi lại link khi cần |
+| /payment/return | Đọc kết quả thanh toán từ backend, chờ IPN |
+| /bookings/:id/tickets | Vé điện tử, QR và in/lưu PDF qua trình duyệt |
 | /trips/:id | Chi tiết chuyến, trạng thái ghế, tạo booking |
 | /bookings | Lịch sử đơn của tài khoản hiện tại |
 | /bookings/:id | Chi tiết, đếm ngược giữ ghế, hủy đơn |
@@ -82,10 +84,12 @@ Production phục vụ dist/ qua web server, cấu hình SPA fallback về index
 
 ## Quy tắc hiển thị
 
+Điểm đi/đến có dropdown lấy từ API tuyến đang có chuyến; lọc không dấu, bàn phím, tuyến có hướng và mobile. Chi tiết tại [location-picker.md](../docs/location-picker.md).
+
 Ngày/giờ theo Asia/Ho_Chi_Minh, tiền VND. Giá tạm tính chỉ hỗ trợ chọn ghế; tổng chính thức lấy từ booking response. Ghế được chọn chưa được giữ cho đến khi POST thành công. Conflict 409 tải lại sơ đồ và bỏ lựa chọn cũ, không tự gửi lại POST.
 
 Deadline được tính để hiển thị countdown; trường holdExpired và dữ liệu backend luôn được ưu tiên. Chi tiết đơn cập nhật mỗi 15 giây, tạm ngừng polling trong lúc hủy để tránh response cũ ghi đè. Lịch sử phản ánh hết hạn ngay khi quá deadline dù scheduler chưa cập nhật status lưu.
 
 Sơ đồ là danh sách ghế minh họa vì schema chưa có tọa độ/toa/tầng. Khi chuyến đã khởi hành và không còn public, chi tiết đơn vẫn hiện ID chuyến, ghế và snapshot giá; không làm hỏng lịch sử vì public trip trả 404.
 
-Thanh toán, IPN và vé điện tử ở P6. Giao diện hiện chỉ tạo và quản lý đơn giữ chỗ, không tự chuyển PAID.
+P6 có VNPAY Sandbox, lịch sử giao dịch và vé điện tử. Giao diện không tự chuyển PAID; IPN hợp lệ từ backend quyết định. Xem [hướng dẫn payment](../docs/payment-api.md). QR dùng `qrcode.react` 4.2.0 tạo cục bộ. Kiểm chứng P6 bằng `scripts/Test-P6.ps1`; script dùng gateway/IPN giả lập có chữ ký, không thực hiện giao dịch VNPAY thật.

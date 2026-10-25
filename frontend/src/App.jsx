@@ -6,6 +6,8 @@ import SearchPage from "./pages/SearchPage";
 import TripPage from "./pages/TripPage";
 import AuthPage from "./pages/AuthPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
+import PaymentReturnPage from "./pages/PaymentReturnPage";
+import TicketsPage from "./pages/TicketsPage";
 import BookingsPage from "./pages/BookingsPage";
 import BookingPage from "./pages/BookingPage";
 import { EmptyState } from "./components/Feedback";
@@ -82,6 +84,18 @@ export default function App() {
         }
       >
         <Routes>
+          <Route
+            path="/payment/return"
+            element={<PaymentReturnPage key={location.search} />}
+          />
+          <Route
+            path="/bookings/:id/tickets"
+            element={
+              <RequireAuth>
+                <TicketsPage key={location.pathname} />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/verify-email"
             element={<VerifyEmailPage key={location.hash} />}

@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   ArrowDownUp,
   ArrowRight,
   BusFront,
   CalendarDays,
-  MapPin,
   Search,
   ShieldCheck,
   CheckCircle2,
@@ -16,6 +15,8 @@ import {
   TrainFront,
 } from "lucide-react";
 import { api, tripQuery } from "../lib/api";
+import { canonicalLocation, locationOptions } from "../lib/locations";
+import LocationPicker from "../components/LocationPicker";
 import TripCard from "../components/TripCard";
 import Pagination from "../components/Pagination";
 import { EmptyState, ErrorNotice, Loading } from "../components/Feedback";
@@ -36,6 +37,12 @@ export default function SearchPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reload, setReload] = useState(0);
+  const [locationRoutes, setLocationRoutes] = useState([]);
+  const [locationLoading, setLocationLoading] = useState(true);
+  const [locationError, setLocationError] = useState(null);
+  const [locationReload, setLocationReload] = useState(0);
+  const [activeLocation, setActiveLocation] = useState(null);
+  const destinationRef = useRef(null);
   const queryString = params.toString();
   const pageNumber = Number(params.get("page") || 0);
   const page = Number.isInteger(pageNumber) && pageNumber >= 0 ? pageNumber : 0;
@@ -58,15 +65,41 @@ export default function SearchPage() {
     return () => controller.abort();
   }, [queryString, page, reload]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const query = new URLSearchParams();
+    if (filters.vehicleType) query.set("vehicleType", filters.vehicleType);
+    if (filters.date) query.set("date", filters.date);
+    setLocationLoading(true);
+    setLocationError(null);
+    setLocationRoutes([]);
+    api("/trips/locations?" + query, { signal: controller.signal })
+      .then((data) => {
+        if (!controller.signal.aborted) setLocationRoutes(data);
+      })
+      .catch((failure) => {
+        if (failure.name !== "AbortError") setLocationError(failure);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLocationLoading(false);
+      });
+    return () => controller.abort();
+  }, [filters.vehicleType, filters.date, locationReload]);
+
   function update(key, value) {
     setFilters({ ...filters, [key]: value });
   }
 
   function search(event) {
     event.preventDefault();
+    setActiveLocation(null);
     const next = new URLSearchParams();
     for (const [key, value] of Object.entries(filters)) {
-      if (value.trim()) next.set(key, value.trim());
+      const text =
+        key === "origin" || key === "destination"
+          ? canonicalLocation(locationRoutes, key, value)
+          : value.trim();
+      if (text) next.set(key, text);
     }
     setParams(next);
     setReload((value) => value + 1);
@@ -82,11 +115,26 @@ export default function SearchPage() {
   }
 
   function swap() {
+    setActiveLocation(null);
     setFilters({
       ...filters,
       origin: filters.destination,
       destination: filters.origin,
     });
+  }
+
+  function chooseOrigin(value) {
+    const compatible = locationRoutes.some(
+      (route) =>
+        route.origin === value && route.destination === filters.destination,
+    );
+    setFilters({
+      ...filters,
+      origin: value,
+      destination: compatible ? filters.destination : "",
+    });
+    setActiveLocation("destination");
+    destinationRef.current?.focus();
   }
 
   function chooseRoute(trip) {
@@ -171,22 +219,23 @@ export default function SearchPage() {
                 </button>
               </div>
               <div className="reference-fields">
-                <label className="departure-field">
-                  <span className="field-symbol">
-                    <i />
-                  </span>
-                  <span className="field-content">
-                    <span>Nơi xuất phát</span>
-                    <input
-                      name="origin"
-                      aria-label="Điểm đi"
-                      maxLength={160}
-                      placeholder="Chọn điểm đi"
-                      value={filters.origin}
-                      onChange={(event) => update("origin", event.target.value)}
-                    />
-                  </span>
-                </label>
+                <LocationPicker
+                  name="origin"
+                  value={filters.origin}
+                  onChange={(value) => update("origin", value)}
+                  onSelect={chooseOrigin}
+                  options={locationOptions(
+                    locationRoutes,
+                    "origin",
+                    "",
+                    filters.origin,
+                  )}
+                  open={activeLocation === "origin"}
+                  onOpen={setActiveLocation}
+                  loading={locationLoading}
+                  error={locationError}
+                  retry={() => setLocationReload(locationReload + 1)}
+                />
                 <button
                   type="button"
                   className="reference-swap"
@@ -195,22 +244,27 @@ export default function SearchPage() {
                 >
                   <ArrowDownUp size={19} />
                 </button>
-                <label className="destination-field">
-                  <MapPin size={28} />
-                  <span className="field-content">
-                    <span>Nơi đến</span>
-                    <input
-                      name="destination"
-                      aria-label="Điểm đến"
-                      maxLength={160}
-                      placeholder="Chọn điểm đến"
-                      value={filters.destination}
-                      onChange={(event) =>
-                        update("destination", event.target.value)
-                      }
-                    />
-                  </span>
-                </label>
+                <LocationPicker
+                  name="destination"
+                  value={filters.destination}
+                  inputRef={destinationRef}
+                  onChange={(value) => update("destination", value)}
+                  onSelect={(value) => {
+                    update("destination", value);
+                    setActiveLocation(null);
+                  }}
+                  options={locationOptions(
+                    locationRoutes,
+                    "destination",
+                    filters.origin,
+                    filters.destination,
+                  )}
+                  open={activeLocation === "destination"}
+                  onOpen={setActiveLocation}
+                  loading={locationLoading}
+                  error={locationError}
+                  retry={() => setLocationReload(locationReload + 1)}
+                />
                 <label className="date-field">
                   <CalendarDays size={26} />
                   <span className="field-content">

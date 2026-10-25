@@ -1,6 +1,6 @@
 # Hệ thống bán vé tàu xe trực tuyến
 
-Đồ án Quản lý dự án phần mềm. Backend dùng Java 21, Spring Boot 3.5.16, PostgreSQL 16+, Flyway và Spring Security JWT. P5 có frontend React/Vite cho Customer; VNPAY Sandbox thuộc P6.
+Đồ án Quản lý dự án phần mềm. Backend dùng Java 21, Spring Boot 3.5.16, PostgreSQL 16+, Flyway và Spring Security JWT. Frontend React/Vite cho Customer; P6 có tích hợp VNPAY Sandbox và vé điện tử.
 
 ## Phạm vi hiện tại
 
@@ -224,7 +224,7 @@ Edge đã cài được dùng cho browser tests. Ảnh desktop/mobile và bằng
 - Không sửa migration đã chia sẻ/áp dụng; thay đổi schema sau P4 dùng V5 trở lên.
 - Không dùng `baseline-on-migrate=true` để bỏ qua database có schema chưa được kiểm chứng.
 - `TIMESTAMPTZ` biểu diễn thời điểm tuyệt đối; connection/JPA dùng UTC. UI tương lai dùng `Asia/Ho_Chi_Minh`.
-- Hibernate validate 7 entities: User, Route, Vehicle, Seat, Trip, Booking và BookingSeat. Payment/Ticket thuộc P6.
+- Hibernate validate 9 entities: User, Route, Vehicle, Seat, Trip, Booking, BookingSeat, Payment và Ticket.
 
 Nếu database V1 đã có email trùng sau chuẩn hóa, V2 sẽ thất bại nguyên tử và giữ dữ liệu cũ. Xác minh tài khoản trước khi xử lý thủ công; không xóa/merge tự động. Truy vấn kiểm tra:
 
@@ -249,10 +249,13 @@ Nếu backend đang chạy ở cổng 8080, chỉ giữ một phiên backend; kh
 - [Báo cáo kiểm chứng P1](docs/P1-report.md)
 - [Báo cáo kiểm chứng P2](docs/P2-report.md)
 - [Contract Catalog/Trip API](docs/catalog-api.md)
+- [Luồng chọn điểm đi và điểm đến](docs/location-picker.md)
 - [Báo cáo kiểm chứng P3](docs/P3-report.md)
 - [Contract Booking API](docs/booking-api.md)
 - [Báo cáo kiểm chứng P4](docs/P4-report.md)
 - [Frontend README](frontend/README.md)
 - [Báo cáo kiểm chứng P5](docs/P5-report.md)
+- [API VNPAY Sandbox và vé](docs/payment-api.md)
+- [Báo cáo kiểm chứng P6](docs/P6-report.md)
 
-Tiếp theo P6: VNPAY Sandbox, xác minh IPN và vé điện tử. P5 không tự xác nhận thanh toán từ giao diện.
+P6 đã có mã nguồn VNPAY Sandbox, IPN và vé điện tử. Xem [cấu hình và API P6](docs/payment-api.md). Kiểm chứng cục bộ: `.\scripts\Test-P6.ps1 -JavaHome 'C:\Program Files\Java\jdk-21.0.12' -Offline`. Demo qua VNPAY thật cần merchant Sandbox và IPN HTTPS công khai; kiểm thử cục bộ không thay thế bước đó. Tiếp theo P7: Admin UI/thống kê và nghiệm thu toàn hệ thống.

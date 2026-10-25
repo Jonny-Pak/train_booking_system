@@ -24,3 +24,5 @@ Khóa ngoại kép:
 Chống chiếm trùng: unique `(trip_id,seat_id)` chỉ với `is_active IS TRUE`.
 
 `payments.txn_ref`, `payments.provider_transaction_id`, `tickets.ticket_code`, `tickets.booking_seat_id` có uniqueness theo SQL. Vé chỉ được phát hành từ booking PAID ở service P6.
+
+V6 bổ sung `payments.expires_at`, mã response/status và cờ/lý do đối soát; unique partial index chỉ cho một payment PENDING trên mỗi booking. Vẫn giữ chín bảng. Financial SUCCESS cần đối soát không tự chuyển booking thành PAID hoặc phát vé. Chi tiết tại [payment-api.md](payment-api.md).

@@ -76,6 +76,16 @@ public class TripService {
         return TripResponse.from(trip);
     }
 
+    public List<LocationRouteResponse> publicLocations(VehicleType vehicleType, LocalDate date) {
+        Instant start = null;
+        Instant end = null;
+        if (date != null) {
+            start = date.atStartOfDay(SEARCH_ZONE).toInstant();
+            end = date.plusDays(1).atStartOfDay(SEARCH_ZONE).toInstant();
+        }
+        return tripQueries.publicLocations(vehicleType, clock.instant(), start, end);
+    }
+
     public List<TripSeatResponse> publicSeats(long id) {
         Trip trip = findPublicTrip(id);
         Map<Long, TripSeatResponse.SeatAvailability> occupied = loadOccupiedSeats(id);

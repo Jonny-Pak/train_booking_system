@@ -2,7 +2,7 @@
 
 ## Phạm vi
 
-Một Spring Boot application và một PostgreSQL theo Modular Monolith. P1 dựng hạ tầng; P2 triển khai auth/user; P3 triển khai route/vehicle/trip; P4 triển khai booking và giữ ghế; P5 có React Customer. Payment và phát hành vé thuộc P6.
+Một Spring Boot application và một PostgreSQL theo Modular Monolith. P1 dựng hạ tầng; P2 auth/user; P3 catalog; P4 booking; P5 React Customer; P6 có payment VNPAY Sandbox và ticket. Xem [payment-api.md](payment-api.md) cho luồng và giới hạn nghiệm thu Sandbox.
 
 Stack khóa: Java 21, Spring Boot 3.5.16, Maven Wrapper 3.9.12, Spring Data JPA/Hibernate, Flyway Core và module PostgreSQL 11.20.3. Dependency versions lấy từ Spring Boot BOM, ngoại trừ Flyway được khóa đồng bộ core/module ở 11.20.3 để hỗ trợ PostgreSQL 18 đang có trên máy. Bản mặc định của Boot cảnh báo chỉ được kiểm chứng đến PostgreSQL 17.
 
@@ -13,6 +13,8 @@ Các module dự kiến: `auth`, `user`, `route`, `vehicle` (gồm ghế), `trip
 Controller nhận DTO và kiểm tra input; service thực thi nghiệp vụ/transaction; repository truy cập dữ liệu. Không trả entity JPA trực tiếp qua REST. Backend quyết định user, giá, thanh toán và quyền sở hữu dữ liệu.
 
 `common` có lỗi API, exception nghiệp vụ và exception advice. `config` quản lý SecurityFilterChain stateless và CORS; `auth` phát hành/xác minh JWT; `user` quản lý JPA entity và DTO tài khoản.
+
+`payment` tạo URL VNPAY, xác minh IPN, quản lý attempt và đối soát. `ticket` phát hành vé trong transaction của payment và cung cấp DTO cho chủ đơn/ADMIN. Flyway V6 bổ sung metadata đối soát/thời hạn và unique pending payment trên booking. Payment SUCCESS cần đối soát không đồng nghĩa booking PAID. Return URL không có quyền xác nhận thanh toán.
 
 ## Xác thực P2
 
@@ -91,7 +93,7 @@ Các mục sau là thiết kế, chưa được triển khai:
 - P6 tiếp tục thứ tự khóa đã dùng ở P4: Trip → Booking → Payment.
 - P6 IPN xác minh chữ ký, merchant, txn_ref, amount và trạng thái; khóa và xử lý idempotent.
 - Payment, booking và tickets được cập nhật atomically; Return không phát hành vé.
-- IPN thành công đến sau expiry/cancel không lấy lại ghế; cần đối soát. Xem xét migration bổ sung dấu hiệu đối soát ở P6.
+- IPN thành công đến sau expiry/cancel không lấy lại ghế; cần đối soát. V6 đã bổ sung dấu hiệu đối soát và thời hạn payment.
 - Không sửa phương tiện hoặc ghế của chuyến đã có booking; không xóa lịch sử đã tham chiếu.
 
 ## Nguồn và tương thích

@@ -19,6 +19,7 @@ export default function BookingPage() {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reload, setReload] = useState(0);
+  const [payments, setPayments] = useState([]);
   const now = useNow();
 
   useEffect(() => {
@@ -36,6 +37,11 @@ export default function BookingPage() {
         if (controller.signal.aborted) return;
         setBooking(data);
         setError(null);
+        const paymentList = await api("/bookings/" + id + "/payments", {
+          token,
+          signal: controller.signal,
+        });
+        if (!controller.signal.aborted) setPayments(paymentList);
         try {
           const currentTrip = await api("/trips/" + data.tripId, {
             signal: controller.signal,
@@ -70,6 +76,30 @@ export default function BookingPage() {
       });
       setBooking(updated);
       setConfirming(false);
+    } catch (failure) {
+      setError(failure);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function pay() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const payment = await api("/bookings/" + id + "/payments", {
+        method: "POST",
+        token,
+      });
+      const target = new URL(payment.paymentUrl);
+      if (
+        target.origin !== "https://sandbox.vnpayment.vn" ||
+        target.pathname !== "/paymentv2/vpcpay.html"
+      ) {
+        throw new Error("Địa chỉ thanh toán không hợp lệ.");
+      }
+      window.location.assign(payment.paymentUrl);
     } catch (failure) {
       setError(failure);
     } finally {
@@ -216,10 +246,27 @@ export default function BookingPage() {
             <span>Tổng tiền</span>
             <strong>{money(booking.totalAmount)}</strong>
           </div>
+          {payments.some((payment) => payment.reconciliationRequired) && (
+            <p className="info-notice" role="status">
+              Giao dịch cần đối soát. Vui lòng liên hệ hỗ trợ và không thanh
+              toán lại.
+            </p>
+          )}
+          {status === "PAID" && (
+            <Link className="button full" to={"/bookings/" + id + "/tickets"}>
+              Xem vé điện tử
+            </Link>
+          )}
+          {status === "PENDING" &&
+            !payments.some((payment) => payment.reconciliationRequired) && (
+              <button className="button full" disabled={busy} onClick={pay}>
+                {busy ? "Đang xử lý…" : "Thanh toán VNPAY Sandbox"}
+              </button>
+            )}
           {status === "PENDING" && (
             <p className="info-notice">
-              Thanh toán trực tuyến hiện chưa khả dụng. Đơn này chỉ giữ ghế có
-              thời hạn.
+              Thanh toán thử nghiệm Sandbox, không dùng tiền thật. Thời gian
+              thanh toán nằm trong hạn giữ ghế.
             </p>
           )}
           {status === "PENDING" && !confirming && (
@@ -264,6 +311,35 @@ export default function BookingPage() {
           </Link>
         </aside>
       </div>
+      {payments.length > 0 && (
+        <section className="panel payment-history">
+          <h2>Lịch sử thanh toán</h2>
+          {payments.map((payment) => (
+            <div className="payment-history-row" key={payment.id}>
+              <div>
+                <strong className="payment-reference">{payment.txnRef}</strong>
+                <p>
+                  {payment.reconciliationRequired
+                    ? "Cần đối soát"
+                    : payment.status === "SUCCESS"
+                      ? "Thành công"
+                      : payment.status === "FAILED"
+                        ? "Không thành công"
+                        : "Chờ xác nhận"}
+                </p>
+              </div>
+              <Link
+                to={
+                  "/payment/return?vnp_TxnRef=" +
+                  encodeURIComponent(payment.txnRef)
+                }
+              >
+                Xem kết quả
+              </Link>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

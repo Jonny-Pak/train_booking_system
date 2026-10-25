@@ -69,6 +69,13 @@ public class Booking {
         status = BookingStatus.EXPIRED;
     }
 
+    public void pay() {
+        if (status != BookingStatus.PENDING) {
+            throw new IllegalStateException("Only pending bookings can be paid");
+        }
+        status = BookingStatus.PAID;
+    }
+
     public Long getId() { return id; }
     public String getBookingCode() { return bookingCode; }
     public Long getUserId() { return userId; }

@@ -6,6 +6,7 @@ import App from "./App";
 import "./styles.css";
 import "./home.css";
 import "./auth.css";
+import "./payment.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

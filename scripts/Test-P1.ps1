@@ -7,7 +7,8 @@ param(
     [switch]$AuthSmoke,
     [switch]$CatalogSmoke,
     [switch]$BookingSmoke,
-    [switch]$FrontendSmoke
+    [switch]$FrontendSmoke,
+    [switch]$PaymentSmoke
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,7 +22,7 @@ foreach ($binary in @($java, (Join-Path $PostgresBin 'initdb.exe'),
 }
 
 # Every run owns a new cluster, databases and application process. Existing services are untouched.
-$phase = if ($FrontendSmoke) { 'P5' } elseif ($BookingSmoke) { 'P4' } elseif ($CatalogSmoke) { 'P3' } elseif ($AuthSmoke) { 'P2' } else { 'P1' }
+$phase = if ($PaymentSmoke) { 'P6' } elseif ($FrontendSmoke) { 'P5' } elseif ($BookingSmoke) { 'P4' } elseif ($CatalogSmoke) { 'P3' } elseif ($AuthSmoke) { 'P2' } else { 'P1' }
 $run = Join-Path $root ('.local\' + $phase.ToLowerInvariant() + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))
 New-Item -ItemType Directory -Path $run -Force | Out-Null
 $socketDirectory = Join-Path $root '.local\sockets'
@@ -31,10 +32,16 @@ $passwordFile = Join-Path $run 'initdb-password'
 $password = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(24))
 [IO.File]::WriteAllText($passwordFile, $password, [Text.UTF8Encoding]::new($false))
 
+$allocatedPorts = [Collections.Generic.HashSet[int]]::new()
 function Get-FreePort {
-    $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
-    $listener.Start()
-    try { return $listener.LocalEndpoint.Port } finally { $listener.Stop() }
+    # Released ephemeral ports can be returned again immediately on Windows.
+    # Track every port in this run, including SMTP, its inbox and Vite.
+    while ($true) {
+        $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        try { $chosenPort = $listener.LocalEndpoint.Port } finally { $listener.Stop() }
+        if ($allocatedPorts.Add($chosenPort)) { return $chosenPort }
+    }
 }
 
 function Invoke-Native([string]$File, [string[]]$Arguments) {
@@ -215,7 +222,8 @@ $variables = @('JAVA_HOME','DB_URL','DB_USERNAME','DB_PASSWORD','TEST_DB_URL',
     'BOOKING_HOLD_SECONDS','BOOKING_EXPIRY_ENABLED','BOOKING_EXPIRY_POLL_MILLISECONDS',
     'API_PROXY_TARGET','E2E_PORT','TEST_ARTIFACT_DIR','APP_CORS_ALLOWED_ORIGINS',
     'MAIL_HOST','MAIL_PORT','MAIL_FROM','MAIL_USERNAME','MAIL_PASSWORD','MAIL_SMTP_AUTH','MAIL_STARTTLS',
-    'TEST_MAIL_HTTP_PORT','TEST_MAIL_URL','APP_FRONTEND_URL','EMAIL_VERIFICATION_TTL_SECONDS')
+    'TEST_MAIL_HTTP_PORT','TEST_MAIL_URL','APP_FRONTEND_URL','EMAIL_VERIFICATION_TTL_SECONDS',
+    'VNPAY_ENABLED','VNPAY_TMN_CODE','VNPAY_HASH_SECRET','VNPAY_RETURN_URL','TEST_P6')
 $previous = @{}
 foreach ($name in $variables) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 $dbPort = Get-FreePort
@@ -245,11 +253,18 @@ try {
     $env:TEST_MAIL_HTTP_PORT = [string](Get-FreePort)
     $env:TEST_MAIL_URL = "http://127.0.0.1:$($env:TEST_MAIL_HTTP_PORT)"
     $env:APP_FRONTEND_URL = 'http://localhost:5173'
+    # Never use a real merchant secret or contact the payment gateway in automated tests.
+    $env:VNPAY_ENABLED = if ($PaymentSmoke) { 'true' } else { 'false' }
+    $env:TEST_P6 = if ($PaymentSmoke) { 'true' } else { 'false' }
+    $env:VNPAY_TMN_CODE = 'P6TEST01'
+    $env:VNPAY_HASH_SECRET = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+    $env:VNPAY_RETURN_URL = 'http://localhost:5173/payment/return'
     if ($FrontendSmoke) {
         $env:E2E_PORT = [string](Get-FreePort)
         while ($env:E2E_PORT -in @("$dbPort", "$httpPort")) { $env:E2E_PORT = [string](Get-FreePort) }
         $env:APP_CORS_ALLOWED_ORIGINS += ",http://127.0.0.1:$($env:E2E_PORT)"
         $env:APP_FRONTEND_URL = "http://127.0.0.1:$($env:E2E_PORT)"
+        $env:VNPAY_RETURN_URL = $env:APP_FRONTEND_URL + '/payment/return'
     }
     $mailbox = Start-Process -FilePath (Get-Command node.exe).Source -WindowStyle Hidden -PassThru `
         -ArgumentList ('"' + (Join-Path $PSScriptRoot 'test-mailbox.mjs') + '"') `
@@ -326,6 +341,16 @@ try {
                 if ($profile.role -ne 'ADMIN') { throw 'Token failed after application restart' }
                 Write-Output 'P2 HTTP smoke: Bearer token remained valid after restart.'
             }
+            if ($PaymentSmoke -and $attempt -eq 2) {
+                $ref = & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $dbPort -U p1_runner `
+                    -d p1_dev -At -v ON_ERROR_STOP=1 -c "SELECT txn_ref FROM payments WHERE status='SUCCESS' AND NOT reconciliation_required ORDER BY id LIMIT 1;"
+                if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace("$ref")) { throw 'P6 paid payment missing after restart' }
+                $headers = @{Authorization='Bearer '+$smokeToken}
+                $payment = Invoke-RestMethod -Uri "http://127.0.0.1:$httpPort/api/v1/payments/$ref" -Headers $headers
+                $issuedTickets = Invoke-RestMethod -Uri "http://127.0.0.1:$httpPort/api/v1/bookings/$($payment.bookingId)/tickets" -Headers $headers
+                if ($payment.status -ne 'SUCCESS' -or @($issuedTickets).Count -ne 2) { throw 'P6 paid payment/tickets failed after restart' }
+                Write-Output 'P6 HTTP smoke: successful payment and two tickets persisted across backend restart.'
+            }
             $count = & (Join-Path $PostgresBin 'psql.exe') -h 127.0.0.1 -p $dbPort -U p1_runner `
                 -d p1_dev -At -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM flyway_schema_history WHERE success;'
             $expectedMigrations = @(Get-ChildItem -LiteralPath (Join-Path $backend 'src\main\resources\db\migration') -Filter 'V*__*.sql').Count
@@ -343,7 +368,8 @@ try {
         firstLaunch = "UP; $expectedMigrations migrations applied"
         secondLaunch = "UP; $expectedMigrations migrations unchanged"
         socketDirectory = $socketDirectory
-        scope = 'Infrastructure, auth, catalog and booking tests; payment and tickets remain out of scope'
+        scope = if ($PaymentSmoke) { 'Infrastructure, auth, catalog, booking, signed simulated VNPAY IPN and tickets. No live VNPAY gateway payment.' } else { 'Infrastructure, auth, catalog and booking; no live VNPAY payment.' }
+        paymentBrowserSmoke = [bool]$PaymentSmoke
         authHttpSmoke = [bool]($AuthSmoke -or $CatalogSmoke)
         catalogHttpSmoke = [bool]$CatalogSmoke
         bookingHttpSmoke = [bool]$BookingSmoke

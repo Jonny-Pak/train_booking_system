@@ -4,6 +4,13 @@ const baseUrl = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(
 );
 
 const messages = {
+  VNPAY_NOT_CONFIGURED:
+    "Thanh toán VNPAY chưa được cấu hình. Vui lòng liên hệ quản trị viên.",
+  BOOKING_NOT_PAYABLE:
+    "Đơn đã đóng hoặc sắp hết thời gian giữ ghế. Vui lòng kiểm tra lại đơn.",
+  PAYMENT_RECONCILIATION_REQUIRED:
+    "Đơn đã ghi nhận giao dịch cần đối soát. Vui lòng liên hệ hỗ trợ trước khi thanh toán lại.",
+  INVALID_PAYMENT_AMOUNT: "Số tiền của đơn chưa phù hợp để thanh toán VNPAY.",
   INVALID_CREDENTIALS: "Email hoặc mật khẩu chưa đúng.",
   EMAIL_NOT_VERIFIED:
     "Bạn cần xác nhận email trước khi đăng nhập. Hãy kiểm tra hộp thư hoặc gửi lại email xác nhận.",

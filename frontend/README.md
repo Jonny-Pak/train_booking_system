@@ -32,6 +32,8 @@ Chỉ biến `VITE_*` được đưa vào bundle trình duyệt: không đặt D
 | /login | Đăng nhập |
 | /register | Đăng ký CUSTOMER |
 | /verify-email | Xác nhận email từ link, gửi lại link khi cần |
+| /payment/return | Đọc kết quả thanh toán từ backend, chờ IPN |
+| /bookings/:id/tickets | Vé điện tử, QR và in/lưu PDF qua trình duyệt |
 | /trips/:id | Chi tiết chuyến, trạng thái ghế, tạo booking |
 | /bookings | Lịch sử đơn của tài khoản hiện tại |
 | /bookings/:id | Chi tiết, đếm ngược giữ ghế, hủy đơn |
@@ -88,4 +90,4 @@ Deadline được tính để hiển thị countdown; trường holdExpired và 
 
 Sơ đồ là danh sách ghế minh họa vì schema chưa có tọa độ/toa/tầng. Khi chuyến đã khởi hành và không còn public, chi tiết đơn vẫn hiện ID chuyến, ghế và snapshot giá; không làm hỏng lịch sử vì public trip trả 404.
 
-Thanh toán, IPN và vé điện tử ở P6. Giao diện hiện chỉ tạo và quản lý đơn giữ chỗ, không tự chuyển PAID.
+P6 có VNPAY Sandbox, lịch sử giao dịch và vé điện tử. Giao diện không tự chuyển PAID; IPN hợp lệ từ backend quyết định. Xem [hướng dẫn payment](../docs/payment-api.md). QR dùng `qrcode.react` 4.2.0 tạo cục bộ. Kiểm chứng P6 bằng `scripts/Test-P6.ps1`; script dùng gateway/IPN giả lập có chữ ký, không thực hiện giao dịch VNPAY thật.

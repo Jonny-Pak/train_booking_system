@@ -5,6 +5,12 @@ const baseUrl = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(
 
 const messages = {
   INVALID_CREDENTIALS: "Email hoặc mật khẩu chưa đúng.",
+  EMAIL_NOT_VERIFIED:
+    "Bạn cần xác nhận email trước khi đăng nhập. Hãy kiểm tra hộp thư hoặc gửi lại email xác nhận.",
+  EMAIL_SEND_FAILED:
+    "Chưa gửi được email xác nhận. Vui lòng thử lại sau hoặc liên hệ quản trị viên.",
+  INVALID_VERIFICATION_TOKEN:
+    "Link xác nhận không hợp lệ, đã hết hạn hoặc đã được sử dụng. Vui lòng yêu cầu link mới.",
   EMAIL_ALREADY_EXISTS:
     "Email này đã được đăng ký. Hãy đăng nhập hoặc dùng email khác.",
   SEAT_UNAVAILABLE:
@@ -59,6 +65,8 @@ export async function api(path, { method = "GET", body, token, signal } = {}) {
       );
     }
     let message = messages[data?.code];
+    if (!message && (response.status === 502 || response.status === 504))
+      message = "Máy chủ tạm thời không phản hồi. Vui lòng thử lại sau.";
     if (!message && response.status === 401)
       message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
     if (!message && response.status === 403)

@@ -1,4 +1,8 @@
 # Tests migrate a dedicated real PostgreSQL database, never H2.
+management:
+  health:
+    mail:
+      enabled: false
 spring:
   config:
     import: "optional:file:../.env.test[.properties],optional:file:.env.test[.properties]"

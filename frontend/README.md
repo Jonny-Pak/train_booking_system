@@ -31,6 +31,7 @@ Chỉ biến `VITE_*` được đưa vào bundle trình duyệt: không đặt D
 | / | Tìm chuyến và phân trang |
 | /login | Đăng nhập |
 | /register | Đăng ký CUSTOMER |
+| /verify-email | Xác nhận email từ link, gửi lại link khi cần |
 | /trips/:id | Chi tiết chuyến, trạng thái ghế, tạo booking |
 | /bookings | Lịch sử đơn của tài khoản hiện tại |
 | /bookings/:id | Chi tiết, đếm ngược giữ ghế, hủy đơn |

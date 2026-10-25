@@ -7,6 +7,22 @@ const apiBase =
   (process.env.API_PROXY_TARGET || "http://localhost:8080") + "/api/v1";
 const artifactDir = process.env.TEST_ARTIFACT_DIR || "test-results/screenshots";
 
+async function verificationLink(request, email) {
+  const inbox = process.env.TEST_MAIL_URL;
+  if (!inbox)
+    throw new Error("TEST_MAIL_URL must point to the isolated SMTP inbox");
+  const response = await request.get(
+    inbox + "/messages?to=" + encodeURIComponent(email),
+  );
+  expect(response.ok()).toBeTruthy();
+  const messages = await response.json();
+  const link = messages
+    .at(-1)
+    ?.body.match(/https?:\/\/[^\s]+\/verify-email#token=[a-f0-9]{64}/)?.[0];
+  expect(link).toBeTruthy();
+  return link;
+}
+
 async function account(request) {
   const email = "p5-" + randomUUID() + "@example.invalid";
   const password = randomUUID() + "Aa1!";
@@ -14,6 +30,13 @@ async function account(request) {
     data: { fullName: "Khách P5", email, password },
   });
   expect(registered.status()).toBe(201);
+  const link = await verificationLink(request, email);
+  const token = new URLSearchParams(new URL(link).hash.slice(1)).get("token");
+  expect(
+    (
+      await request.post(apiBase + "/auth/verify-email", { data: { token } })
+    ).status(),
+  ).toBe(204);
   const loggedIn = await request.post(apiBase + "/auth/login", {
     data: { email, password },
   });
@@ -136,8 +159,68 @@ test("auth dialogs match the layout, trap focus and close without losing navigat
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
+test("registration requires matching passwords and terms acceptance in the requested order", async ({
+  page,
+}) => {
+  let registrationRequests = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().endsWith("/auth/register"))
+      registrationRequests++;
+  });
+  await page.goto("/register");
+  await expect(
+    page.getByRole("dialog", { name: "Đăng ký", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page
+      .locator(".auth-dialog-form input")
+      .evaluateAll((inputs) => inputs.map((input) => input.name)),
+  ).toEqual([
+    "fullName",
+    "phone",
+    "password",
+    "confirmPassword",
+    "email",
+    "acceptedTerms",
+  ]);
+  const submit = page.getByRole("button", {
+    name: "Tạo tài khoản",
+    exact: true,
+  });
+  const terms = page.getByRole("checkbox", {
+    name: "Tôi đồng ý với chính sách và điều khoản sử dụng.",
+  });
+  await expect(terms).not.toBeChecked();
+  await expect(submit).toBeDisabled();
+  await page.getByLabel("Họ và tên", { exact: true }).fill("Khách kiểm tra");
+  await page.getByLabel("Số điện thoại", { exact: true }).fill("0900000000");
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill("validation@example.invalid");
+  await page.locator('input[name="password"]').fill("Test-password-21!");
+  const confirmation = page.getByLabel("Xác nhận mật khẩu", { exact: true });
+  await confirmation.fill("Different-password!");
+  await page
+    .getByRole("button", { name: "Hiện xác nhận mật khẩu", exact: true })
+    .click();
+  await expect(confirmation).toHaveAttribute("type", "text");
+  await page
+    .getByRole("button", { name: "Ẩn xác nhận mật khẩu", exact: true })
+    .click();
+  await expect(confirmation).toHaveAttribute("type", "password");
+  await terms.check();
+  await submit.click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Xác nhận mật khẩu chưa khớp",
+  );
+  expect(registrationRequests).toBe(0);
+  await terms.uncheck();
+  await expect(submit).toBeDisabled();
+});
+
 test("register, login, keep session on reload, book and cancel with real APIs", async ({
   page,
+  request,
 }) => {
   const email = "p5-ui-" + randomUUID() + "@example.invalid";
   const password = randomUUID() + "Aa1!";
@@ -145,8 +228,15 @@ test("register, login, keep session on reload, book and cancel with real APIs", 
   await expect(page).toHaveURL(/\/login$/);
   await page.getByRole("link", { name: "Đăng ký ngay" }).click();
   await page.getByLabel("Họ và tên", { exact: true }).fill("Khách P5");
+  await page.getByLabel("Số điện thoại", { exact: true }).fill("0900000000");
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.locator('input[name="password"]').fill(password);
+  await page.getByLabel("Xác nhận mật khẩu", { exact: true }).fill(password);
+  await page
+    .getByRole("checkbox", {
+      name: "Tôi đồng ý với chính sách và điều khoản sử dụng.",
+    })
+    .check();
   await page
     .getByRole("button", { name: "Tạo tài khoản", exact: true })
     .click();
@@ -156,6 +246,32 @@ test("register, login, keep session on reload, book and cancel with real APIs", 
   await expect(page.getByRole("alert")).toContainText(
     "Email hoặc mật khẩu chưa đúng",
   );
+  await page.locator('input[name="password"]').fill(password);
+  await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Bạn cần xác nhận email");
+  await page
+    .getByRole("button", { name: "Gửi lại email xác nhận", exact: true })
+    .click();
+  await expect(
+    page.getByText("Nếu email đang chờ xác nhận", { exact: false }),
+  ).toBeVisible();
+  await page.goto(await verificationLink(request, email));
+  await expect(
+    page.getByRole("heading", { name: "Xác nhận email", exact: true }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/verify-email$/);
+  await screenshot(page, "verify-email-desktop.png");
+  await page
+    .getByRole("button", { name: "Xác nhận email", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Email đã được xác nhận" }),
+  ).toBeVisible();
+  await page
+    .getByRole("link", { name: "Đăng nhập", exact: true })
+    .last()
+    .click();
+  await page.getByLabel("Email", { exact: true }).fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole("button", { name: "Đăng nhập", exact: true }).click();
   await expect(page).toHaveURL(/\/bookings$/);
@@ -202,6 +318,43 @@ test("register, login, keep session on reload, book and cancel with real APIs", 
   await page.getByRole("button", { name: "Đăng xuất", exact: true }).click();
   await page.goto("/bookings");
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test("verification page handles a missing, invalid and already used link", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/verify-email");
+  await expect(page.getByRole("alert")).toContainText("Thiếu link xác nhận");
+  await page.goto("/");
+  await page.goto("/verify-email#token=" + "0".repeat(64));
+  await expect(page).toHaveURL(/\/verify-email$/);
+  await page.reload();
+  // A token intentionally removed from the URL cannot survive a reload.
+  await expect(page.getByRole("alert")).toContainText("Thiếu link xác nhận");
+  await page.goto("/");
+  await page.goto("/verify-email#token=" + "0".repeat(64));
+  await page
+    .getByRole("button", { name: "Xác nhận email", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Link xác nhận không hợp lệ",
+  );
+  const owner = await account(request);
+  const usedLink = await verificationLink(request, owner.email);
+  await page.goto("/");
+  await page.goto(usedLink);
+  await page
+    .getByRole("button", { name: "Xác nhận email", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("đã được sử dụng");
+  await page.setViewportSize({ width: 375, height: 812 });
+  await screenshot(page, "verify-email-mobile.png");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });
 
 test("login return preserves selected seats and a real seat conflict refreshes the grid", async ({

@@ -4,14 +4,29 @@ import { api, tripQuery } from "./api";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("API client", () => {
+  it("explains an empty proxy error without retrying registration", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => {
+        throw new SyntaxError("Empty proxy response");
+      },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(
+      api("/auth/register", { method: "POST", body: {} }),
+    ).rejects.toMatchObject({
+      status: 502,
+      message: "Máy chủ tạm thời không phản hồi. Vui lòng thử lại sau.",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
   it("sends Bearer headers and the exact booking body without cookies", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        status: 201,
-        json: async () => ({ id: 9 }),
-      });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ id: 9 }),
+    });
     vi.stubGlobal("fetch", fetchMock);
     await api("/bookings", {
       method: "POST",

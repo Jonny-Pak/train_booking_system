@@ -9,7 +9,11 @@ Hai form dùng hộp thoại trắng bo góc, nền trang chủ làm tối, nút
 - `frontend/src/App.jsx`: trang chủ làm nền cho hai route `/login`, `/register`.
 - `frontend/e2e/customer.spec.js`: kiểm tra giao diện và luồng thực tế.
 
-Đăng nhập tiếp tục dùng email/mật khẩu với API JWT hiện có. Đăng ký gồm họ tên, email, mật khẩu và số điện thoại không bắt buộc. Google OAuth, đăng nhập bằng OTP và reCAPTCHA cần tích hợp backend/cấu hình riêng, chưa nằm trong thay đổi này.
+Đăng nhập dùng email/mật khẩu với API JWT. Tài khoản mới cần [xác nhận email](email-verification.md) trước khi đăng nhập; có nút gửi lại email. Google OAuth, đăng nhập bằng OTP và reCAPTCHA chưa tích hợp.
+
+Form đăng ký được cập nhật theo thứ tự: họ tên, số điện thoại, mật khẩu, xác nhận mật khẩu, email và ô đồng ý chính sách/điều khoản sử dụng. Số điện thoại bắt buộc trên form; API vẫn giữ contract phone tùy chọn. Email được giữ để gửi link xác nhận. Mật khẩu nhập lại phải khớp; nút tạo tài khoản chỉ bật khi tích đồng ý. Hai trường xác nhận mật khẩu/đồng ý chỉ kiểm tra ở giao diện, không gửi vào DTO đăng ký hoặc lưu lịch sử chấp thuận chính sách.
+
+Lượt kiểm chứng form mới: `.local/p5-20261025-194856-a96e9674/verification.json`, ngày 25/10/2026. Lint/build đạt; 112 tests backend, 17 tests frontend và 7 browser tests đạt. Đã xem ảnh đăng ký desktop/mobile; có kiểm thử riêng thứ tự trường, hiện/ẩn xác nhận mật khẩu, chặn mật khẩu không khớp và bắt buộc tích đồng ý.
 
 ## Tương tác
 

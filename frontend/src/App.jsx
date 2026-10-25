@@ -5,6 +5,7 @@ import RequireAuth from "./auth/RequireAuth";
 import SearchPage from "./pages/SearchPage";
 import TripPage from "./pages/TripPage";
 import AuthPage from "./pages/AuthPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 import BookingsPage from "./pages/BookingsPage";
 import BookingPage from "./pages/BookingPage";
 import { EmptyState } from "./components/Feedback";
@@ -81,6 +82,10 @@ export default function App() {
         }
       >
         <Routes>
+          <Route
+            path="/verify-email"
+            element={<VerifyEmailPage key={location.hash} />}
+          />
           <Route path="/" element={<SearchPage />} />
           <Route
             path="/trips/:id"

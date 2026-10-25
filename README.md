@@ -6,7 +6,7 @@
 
 P1 cung cấp hạ tầng, 9 bảng và health check. P2 có auth/JWT và phân quyền. P3 có catalog/tìm chuyến. P4 có booking, giữ ghế, lịch sử, hủy và scheduler hết hạn. P5 có giao diện Customer tiếng Việt để sử dụng các API này. Chưa có thanh toán hoặc UI quản trị.
 
-Public: GET health, POST register/login, GET `/api/v1/trips`, `/api/v1/trips/{id}`, `/api/v1/trips/{id}/seats`. GET `/api/v1/auth/me` yêu cầu JWT; `/api/v1/admin/**` chỉ ADMIN. Endpoint chưa được khai báo bị chặn. Không có tài khoản mặc định hoặc đăng ký ADMIN công khai.
+Public: GET health, POST register/login/verify-email/resend-verification dưới `/api/v1/auth`, GET `/api/v1/trips`, `/api/v1/trips/{id}`, `/api/v1/trips/{id}/seats`. GET `/api/v1/auth/me` yêu cầu JWT; `/api/v1/admin/**` chỉ ADMIN. Endpoint chưa được khai báo bị chặn. Không có tài khoản mặc định hoặc đăng ký ADMIN công khai.
 
 ## Yêu cầu
 
@@ -234,6 +234,14 @@ FROM users GROUP BY lower(btrim(email)) HAVING count(*) > 1;
 ```
 
 ## Tài liệu và bước tiếp theo
+
+### VS Code báo thiếu thư viện mail khi Run Java
+
+Nếu log có `NoClassDefFoundError: org/springframework/mail/MailException` nhưng Maven build thành công, VS Code đang dùng classpath cũ sau khi thêm `spring-boot-starter-mail`. Mở Command Palette bằng `Ctrl+Shift+P`, chạy **Java: Reload Projects** và chờ **Java: Ready**. Không chạy lại file `cp_*.argfile` cũ. Đặt `"java.configuration.updateBuildConfiguration": "automatic"` trong `.vscode/settings.json` để tự cập nhật khi `pom.xml` đổi; đây là cấu hình [Java extension chính thức](https://github.com/redhat-developer/vscode-java#supported-vs-code-settings).
+
+Nếu backend đang chạy ở cổng 8080, chỉ giữ một phiên backend; không mở thêm một phiên Run cùng cổng. Có thể chạy qua Maven Wrapper tại `backend/` như hướng dẫn phía trên khi cần bỏ qua classpath của IDE.
+
+Đăng ký mới yêu cầu mở link xác nhận email trước khi đăng nhập. Cần cấu hình SMTP trong `.env`; xem [luồng xác nhận email và cách chạy](docs/email-verification.md). Flyway V5 tự nâng schema, giữ quyền truy cập tài khoản cũ. Script kiểm chứng dùng Node cho SMTP inbox tạm và không gửi email ra ngoài.
 
 - [Kiến trúc và quyết định backend](docs/architecture.md)
 - [ERD](docs/02_ERD.md)

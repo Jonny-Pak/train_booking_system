@@ -28,6 +28,9 @@ public class DatabaseJwtAuthenticationConverter implements Converter<Jwt, Abstra
         }
         var user = users.findById(id).orElseThrow(() ->
                 new OAuth2AuthenticationException(new OAuth2Error("invalid_token")));
+        if (!user.isEmailVerified()) {
+            throw new OAuth2AuthenticationException(new OAuth2Error("invalid_token"));
+        }
         // Role from DB takes precedence over a token's stale role claim.
         return new JwtAuthenticationToken(jwt,
                 List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())), Long.toString(id));

@@ -22,6 +22,8 @@ Mật khẩu BCrypt cost 12; tối thiểu 8 Unicode code points, tối đa 72 b
 
 Đăng ký chỉ CUSTOMER; field lạ/role gửi lên bị từ chối. Email strip/lowercase với Locale.ROOT và V2 bảo vệ ở DB. Kiểm tra tồn tại trước và bắt unique conflict khi saveAndFlush để xử lý hai đăng ký đồng thời.
 
+Sau V5, tài khoản mới cần xác nhận email trước khi đăng nhập. Token ngẫu nhiên một lần có hạn dùng, DB lưu SHA-256, khóa ghi user bảo vệ xác nhận/resend. JavaMailSender gửi SMTP đồng bộ với timeout; lỗi gửi rollback transaction. Tài khoản cũ giữ quyền truy cập. Chi tiết và giới hạn tại [email-verification.md](email-verification.md).
+
 JWT subject là ID user, không có email/password. Role claim hỗ trợ client nhưng quyền backend đọc từ database mỗi request để không giữ quyền ADMIN đã bị thu hồi. User bị xóa không tiếp tục dùng token. Không có tài khoản Admin mặc định hoặc API tự nâng quyền.
 
 Chỉ nhận header Bearer, không cookie/query token; tắt session/Basic/form login và CSRF theo contract này. Nếu bổ sung cookie authentication sau này phải thiết kế lại CSRF. Tất cả response auth thành công có Cache-Control no-store. Login/registration DTO không chứa role; entity không trả trực tiếp qua REST.

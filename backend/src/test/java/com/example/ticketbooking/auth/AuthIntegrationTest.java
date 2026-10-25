@@ -48,6 +48,12 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.MailSendException;
+import org.mockito.ArgumentCaptor;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -65,6 +71,7 @@ class AuthIntegrationTest {
     @Autowired JwtSettings settings;
     @Autowired JdbcTemplate jdbc;
     @Autowired EntityManager entityManager;
+    @MockitoBean JavaMailSender mailSender;
 
     @Test
     void registerNormalizesEmailAndHashesPasswordWithoutLeakingIt() throws Exception {
@@ -131,6 +138,8 @@ class AuthIntegrationTest {
                         .content(mapper.writeValueAsString(Map.of("fullName", "Customer",
                                 "email", EMAIL, "password", password))))
                 .andExpect(status().isCreated());
+        users.findByEmail(EMAIL).orElseThrow().verifyEmail();
+        users.flush();
         assertThat(login(EMAIL, password).getResponse().getStatus()).isEqualTo(200);
     }
 
@@ -262,7 +271,143 @@ class AuthIntegrationTest {
     private long createCustomer() throws Exception {
         MvcResult result = mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                 .content(registerBody(EMAIL))).andExpect(status().isCreated()).andReturn();
-        return mapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+        var user = users.findByEmail(EMAIL).orElseThrow();
+        user.verifyEmail();
+        users.flush();
+        return user.getId();
+    }
+
+    @Test
+    void newAccountMustVerifyEmailBeforeLoginAndTokenCannotBeReused() throws Exception {
+        registerUnverified();
+        assertThat(login(EMAIL, PASSWORD).getResponse().getStatus()).isEqualTo(403);
+        assertThat(login(EMAIL, "wrong-password").getResponse().getStatus()).isEqualTo(401);
+        String token = sentToken();
+        String storedHash = jdbc.queryForObject("SELECT verification_token_hash FROM users WHERE email = ?", String.class, EMAIL);
+        assertThat(storedHash).hasSize(64).isNotEqualTo(token);
+        verifyToken(token).andExpect(status().isNoContent());
+        assertThat(login(EMAIL, PASSWORD).getResponse().getStatus()).isEqualTo(200);
+        verifyToken(token).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_VERIFICATION_TOKEN"));
+        assertThat(jdbc.queryForObject("SELECT verification_token_hash FROM users WHERE email = ?", String.class, EMAIL)).isNull();
+    }
+
+    @Test
+    void expiredAndTamperedLinksCannotActivateAccount() throws Exception {
+        registerUnverified();
+        String token = sentToken();
+        verifyToken("0".repeat(64)).andExpect(status().isBadRequest());
+        jdbc.update("UPDATE users SET verification_expires_at = CURRENT_TIMESTAMP - INTERVAL '1 second' WHERE email = ?", EMAIL);
+        entityManager.clear();
+        verifyToken(token).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_VERIFICATION_TOKEN"));
+        assertThat(login(EMAIL, PASSWORD).getResponse().getStatus()).isEqualTo(403);
+    }
+
+    @Test
+    void resendHasCooldownReplacesOldTokenAndDoesNotRevealUnknownAccounts() throws Exception {
+        registerUnverified();
+        String oldToken = sentToken();
+        clearInvocations(mailSender);
+        resendEmail(EMAIL).andExpect(status().isNoContent());
+        verifyNoInteractions(mailSender);
+        jdbc.update("UPDATE users SET verification_sent_at = CURRENT_TIMESTAMP - INTERVAL '61 seconds' WHERE email = ?", EMAIL);
+        entityManager.clear();
+        resendEmail(" AUTH-TEST@EXAMPLE.INVALID ").andExpect(status().isNoContent());
+        String newToken = sentToken();
+        assertThat(newToken).isNotEqualTo(oldToken);
+        verifyToken(oldToken).andExpect(status().isBadRequest());
+        verifyToken(newToken).andExpect(status().isNoContent());
+        clearInvocations(mailSender);
+        resendEmail(EMAIL).andExpect(status().isNoContent());
+        resendEmail("unknown@example.invalid").andExpect(status().isNoContent());
+        verifyNoInteractions(mailSender);
+    }
+
+    @Test
+    void unverifiedUserCannotUseSignedJwtToBypassLogin() throws Exception {
+        registerUnverified();
+        long id = users.findByEmail(EMAIL).orElseThrow().getId();
+        mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + signedToken(id, "valid")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void verificationPayloadIsValidatedAndGetDoesNotConsumeToken() throws Exception {
+        registerUnverified();
+        String token = sentToken();
+        verifyToken("not-a-token").andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/auth/verify-email").param("token", token)).andExpect(status().isUnauthorized());
+        verifyToken(token).andExpect(status().isNoContent());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void mailFailureRollsBackRegistration() throws Exception {
+        doThrow(new MailSendException("Test SMTP unavailable")).when(mailSender).send(any(SimpleMailMessage.class));
+        try {
+            mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(registerBody(EMAIL)))
+                    .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("EMAIL_SEND_FAILED"));
+            assertThat(users.findByEmail(EMAIL)).isEmpty();
+        } finally { jdbc.update("DELETE FROM users WHERE email = ?", EMAIL); }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void concurrentVerificationConsumesTokenExactlyOnce() throws Exception {
+        registerUnverified();
+        String token = sentToken();
+        CountDownLatch start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Callable<Integer> call = () -> {
+                start.await(10, TimeUnit.SECONDS);
+                return verifyToken(token).andReturn().getResponse().getStatus();
+            };
+            var first = executor.submit(call);
+            var second = executor.submit(call);
+            start.countDown();
+            assertThat(List.of(first.get(15, TimeUnit.SECONDS), second.get(15, TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(204, 400);
+        } finally { jdbc.update("DELETE FROM users WHERE email = ?", EMAIL); }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void failedResendKeepsThePreviousLinkUsable() throws Exception {
+        registerUnverified();
+        String token = sentToken();
+        jdbc.update("UPDATE users SET verification_sent_at = CURRENT_TIMESTAMP - INTERVAL '61 seconds' WHERE email = ?", EMAIL);
+        doThrow(new MailSendException("Test SMTP unavailable")).when(mailSender).send(any(SimpleMailMessage.class));
+        try {
+            resendEmail(EMAIL).andExpect(status().isServiceUnavailable());
+            verifyToken(token).andExpect(status().isNoContent());
+        } finally { jdbc.update("DELETE FROM users WHERE email = ?", EMAIL); }
+    }
+
+    private void registerUnverified() throws Exception {
+        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(registerBody(EMAIL)))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.emailVerified").value(false))
+                .andExpect(jsonPath("$.verificationTokenHash").doesNotExist());
+    }
+
+    private String sentToken() {
+        var message = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender, atLeastOnce()).send(message.capture());
+        String text = message.getValue().getText();
+        assertThat(text).contains("/verify-email#token=");
+        var matcher = java.util.regex.Pattern.compile("#token=([a-f0-9]{64})").matcher(text);
+        assertThat(matcher.find()).isTrue();
+        return matcher.group(1);
+    }
+
+    private org.springframework.test.web.servlet.ResultActions verifyToken(String token) throws Exception {
+        return mvc.perform(post("/api/v1/auth/verify-email").contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(Map.of("token", token))));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions resendEmail(String email) throws Exception {
+        return mvc.perform(post("/api/v1/auth/resend-verification").contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(Map.of("email", email))));
     }
 
     private String registerBody(String email) throws Exception {

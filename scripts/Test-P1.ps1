@@ -84,6 +84,14 @@ function Wait-Healthy($Process) {
     throw "Health never became UP. Inspect logs in $run"
 }
 
+function Confirm-TestEmail([string]$Email) {
+    $messages = Invoke-RestMethod -Uri "$($env:TEST_MAIL_URL)/messages?to=$([uri]::EscapeDataString($Email))"
+    $text = $messages[-1].body
+    if ($text -notmatch '#token=([a-f0-9]{64})') { throw 'Verification mail was not captured' }
+    $null = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$httpPort/api/v1/auth/verify-email" `
+        -ContentType 'application/json' -Body (@{token=$Matches[1]} | ConvertTo-Json)
+}
+
 function Invoke-AuthSmoke {
     $base = "http://127.0.0.1:$httpPort/api/v1"
     $email = 'p2-smoke@example.invalid'
@@ -95,6 +103,7 @@ function Invoke-AuthSmoke {
     $duplicate = Invoke-RestMethod -Method Post -Uri "$base/auth/register" -ContentType 'application/json' `
         -Body $body -SkipHttpErrorCheck -StatusCodeVariable responseStatus
     if ($responseStatus -ne 409 -or $duplicate.code -ne 'EMAIL_ALREADY_EXISTS') { throw 'Duplicate HTTP smoke failed' }
+    Confirm-TestEmail $email
     $loginBody = @{email=$email; password=$credential} | ConvertTo-Json -Compress
     $login = Invoke-RestMethod -Method Post -Uri "$base/auth/login" -ContentType 'application/json' -Body $loginBody
     if ($login.tokenType -ne 'Bearer' -or -not $login.accessToken) { throw 'Login HTTP smoke failed' }
@@ -157,6 +166,7 @@ function Invoke-BookingSmoke([string]$AdminToken) {
     $email = 'p4-smoke@example.invalid'
     $null = Invoke-RestMethod -Method Post -Uri "$base/auth/register" -ContentType 'application/json' `
         -Body (@{fullName='P4 Customer';email=$email;password=$credential}|ConvertTo-Json)
+    Confirm-TestEmail $email
     $login = Invoke-RestMethod -Method Post -Uri "$base/auth/login" -ContentType 'application/json' `
         -Body (@{email=$email;password=$credential}|ConvertTo-Json)
     $headers = @{Authorization='Bearer '+$login.accessToken}
@@ -203,7 +213,9 @@ function Invoke-BookingSmoke([string]$AdminToken) {
 $variables = @('JAVA_HOME','DB_URL','DB_USERNAME','DB_PASSWORD','TEST_DB_URL',
     'TEST_DB_USERNAME','TEST_DB_PASSWORD','PGPASSWORD','SERVER_PORT','SPRING_PROFILES_ACTIVE','JWT_SECRET',
     'BOOKING_HOLD_SECONDS','BOOKING_EXPIRY_ENABLED','BOOKING_EXPIRY_POLL_MILLISECONDS',
-    'API_PROXY_TARGET','E2E_PORT','TEST_ARTIFACT_DIR','APP_CORS_ALLOWED_ORIGINS')
+    'API_PROXY_TARGET','E2E_PORT','TEST_ARTIFACT_DIR','APP_CORS_ALLOWED_ORIGINS',
+    'MAIL_HOST','MAIL_PORT','MAIL_FROM','MAIL_USERNAME','MAIL_PASSWORD','MAIL_SMTP_AUTH','MAIL_STARTTLS',
+    'TEST_MAIL_HTTP_PORT','TEST_MAIL_URL','APP_FRONTEND_URL','EMAIL_VERIFICATION_TTL_SECONDS')
 $previous = @{}
 foreach ($name in $variables) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 $dbPort = Get-FreePort
@@ -211,6 +223,7 @@ $httpPort = Get-FreePort
 while ($httpPort -eq $dbPort) { $httpPort = Get-FreePort }
 $databaseStarted = $false
 $application = $null
+$mailbox = $null
 
 try {
     $env:JAVA_HOME = $JavaHome
@@ -221,11 +234,36 @@ try {
     $env:BOOKING_EXPIRY_ENABLED = 'true'
     $env:BOOKING_EXPIRY_POLL_MILLISECONDS = '1000'
     $env:APP_CORS_ALLOWED_ORIGINS = 'http://localhost:5173,http://127.0.0.1:5173'
+    $env:MAIL_HOST = '127.0.0.1'
+    $env:MAIL_PORT = [string](Get-FreePort)
+    $env:MAIL_FROM = 'no-reply@example.invalid'
+    $env:MAIL_USERNAME = ''
+    $env:MAIL_PASSWORD = ''
+    $env:MAIL_SMTP_AUTH = 'false'
+    $env:MAIL_STARTTLS = 'false'
+    $env:EMAIL_VERIFICATION_TTL_SECONDS = '1800'
+    $env:TEST_MAIL_HTTP_PORT = [string](Get-FreePort)
+    $env:TEST_MAIL_URL = "http://127.0.0.1:$($env:TEST_MAIL_HTTP_PORT)"
+    $env:APP_FRONTEND_URL = 'http://localhost:5173'
     if ($FrontendSmoke) {
         $env:E2E_PORT = [string](Get-FreePort)
         while ($env:E2E_PORT -in @("$dbPort", "$httpPort")) { $env:E2E_PORT = [string](Get-FreePort) }
         $env:APP_CORS_ALLOWED_ORIGINS += ",http://127.0.0.1:$($env:E2E_PORT)"
+        $env:APP_FRONTEND_URL = "http://127.0.0.1:$($env:E2E_PORT)"
     }
+    $mailbox = Start-Process -FilePath (Get-Command node.exe).Source -WindowStyle Hidden -PassThru `
+        -ArgumentList ('"' + (Join-Path $PSScriptRoot 'test-mailbox.mjs') + '"') `
+        -RedirectStandardOutput (Join-Path $run 'mailbox.out.log') `
+        -RedirectStandardError (Join-Path $run 'mailbox.err.log')
+    $mailReady = $false
+    foreach ($attempt in 1..30) {
+        try {
+            $null = Invoke-RestMethod -Uri "$($env:TEST_MAIL_URL)/messages" -TimeoutSec 1
+            $mailReady = $true
+            break
+        } catch { Start-Sleep -Milliseconds 200 }
+    }
+    if (-not $mailReady) { throw 'Test SMTP inbox failed to start' }
     Write-Output "$phase isolated verification: $run"
     Invoke-Native (Join-Path $PostgresBin 'initdb.exe') @('-D', $cluster, '-U', 'p1_runner',
         '--pwfile', $passwordFile, '--auth-local=scram-sha-256', '--auth-host=scram-sha-256',
@@ -314,6 +352,7 @@ try {
     $result | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $run 'verification.json') -Encoding utf8
     Write-Output "$phase verification PASSED. Temporary application and database will now stop."
 } finally {
+    if ($mailbox -and -not $mailbox.HasExited) { Stop-Process -Id $mailbox.Id }
     if ($application -and -not $application.HasExited) { Stop-Process -Id $application.Id }
     if ($databaseStarted) { Invoke-PgControl 'stop' }
     if (Test-Path -LiteralPath $passwordFile) { Remove-Item -LiteralPath $passwordFile }

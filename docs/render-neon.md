@@ -4,7 +4,9 @@ Audit migration bổ sung đã được kiểm thử riêng: xem [neon-migration
 
 ## Kết quả rà soát và phạm vi
 
-Chuẩn bị cho project Neon `train-booking-db`, branch `production`, database `neondb`, role `neondb_owner`, AWS Singapore. Không sử dụng mật khẩu trong ảnh, không kết nối Neon, không chạy SQL thay đổi dữ liệu hay lệnh DROP trong lượt chuẩn bị này. Mật khẩu từng xuất hiện trong ảnh cần được reset trên Neon; nhập mật khẩu mới trực tiếp vào Render.
+Chuẩn bị cho project Neon `train-booking-db`, branch `production`, database `neondb`, role `neondb_owner`, AWS Singapore. Không lưu mật khẩu vào mã nguồn/tài liệu, không kết nối Neon, không chạy SQL thay đổi dữ liệu hay lệnh DROP trong lượt chuẩn bị này. Mật khẩu từng xuất hiện trong ảnh cần được reset trên Neon; nhập mật khẩu mới trực tiếp vào Render.
+
+Hostname direct hiện tại là `ep-wild-darkness-a1guhgo1.ap-southeast-1.aws.neon.tech`; cấu hình không chứa mật khẩu đã cập nhật trong `render-env.example`. File `.env.render` cục bộ chứa thông tin riêng và bị Git bỏ qua. Push mã nguồn không tự cập nhật mật khẩu trong Render Environment; cần lưu giá trị mới tại Dashboard trước khi redeploy.
 
 Backend giữ Java 21/Spring Boot 3.5.16, Spring Data JPA và PostgreSQL. JAR đóng gói PostgreSQL JDBC **42.7.11**, Flyway Core và Flyway PostgreSQL **11.20.3**. Không cần thêm driver hoặc đổi ORM. Không đổi nghiệp vụ đăng ký, giữ chỗ, thanh toán, vé hay quyền Admin.
 

@@ -1,7 +1,8 @@
 # Reference only: enter real values in Render Dashboard > Environment.
-# This is NOT a real credential file. Replace every example domain and placeholder.
+# Public Neon host is configured for train-booking-db / production; no password is stored here.
+# Replace frontend/backend example domains and all secret placeholders in Render Environment.
 SPRING_PROFILES_ACTIVE=prod
-SPRING_DATASOURCE_URL=jdbc:postgresql://ep-example.ap-southeast-1.aws.neon.tech:5432/neondb?sslmode=require&channelBinding=require
+SPRING_DATASOURCE_URL=jdbc:postgresql://ep-wild-darkness-a1guhgo1.ap-southeast-1.aws.neon.tech:5432/neondb?sslmode=require&channelBinding=require
 SPRING_DATASOURCE_USERNAME=neondb_owner
 SPRING_DATASOURCE_PASSWORD=SET_IN_RENDER_ONLY
 JWT_SECRET=SET_RANDOM_BASE64_SECRET_IN_RENDER_ONLY

@@ -1,4 +1,8 @@
 # Tests migrate a dedicated real PostgreSQL database, never H2.
+management:
+  health:
+    mail:
+      enabled: false
 spring:
   config:
     import: "optional:file:../.env.test[.properties],optional:file:.env.test[.properties]"
@@ -8,3 +12,13 @@ spring:
     password: ${TEST_DB_PASSWORD}
     hikari:
       maximum-pool-size: 4
+
+booking:
+  hold-seconds: 600
+  expiry:
+    enabled: false
+
+security:
+  jwt:
+    # Public test fixture, never accepted as the runtime signing key.
+    secret: ${TEST_JWT_SECRET:dGVzdC1vbmx5LXNpZ25pbmcta2V5LTMyaW4tbGVuZ3RoISE=}

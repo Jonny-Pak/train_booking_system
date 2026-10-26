@@ -1,0 +1,27 @@
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { AuthProvider } from "./auth/AuthProvider";
+import App from "./App";
+import SiteProvider from "./site/SiteProvider";
+import "./styles.css";
+import "./home.css";
+import "./auth.css";
+import "./payment.css";
+import "./location.css";
+import "./admin.css";
+import "./seats.css";
+import "./site.css";
+import "./footer.css";
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <React.StrictMode>
+    <BrowserRouter>
+      <AuthProvider>
+        <SiteProvider>
+          <App />
+        </SiteProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  </React.StrictMode>,
+);

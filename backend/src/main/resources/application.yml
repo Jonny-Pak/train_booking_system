@@ -1,6 +1,19 @@
 spring:
   application:
     name: ticket-booking
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      "[mail.smtp.auth]": ${MAIL_SMTP_AUTH:false}
+      "[mail.smtp.starttls.enable]": ${MAIL_STARTTLS:false}
+      "[mail.smtp.starttls.required]": ${MAIL_STARTTLS:false}
+      "[mail.smtp.connectiontimeout]": 5000
+      "[mail.smtp.timeout]": 5000
+      "[mail.smtp.writetimeout]": 5000
   config:
     import: "optional:file:../.env[.properties],optional:file:.env[.properties]"
   datasource:
@@ -25,9 +38,40 @@ spring:
     validate-on-migrate: true
   jackson:
     time-zone: UTC
+    deserialization:
+      fail-on-unknown-properties: true
   mvc:
     problemdetails:
       enabled: false
+
+app:
+  mail:
+    from: ${MAIL_FROM:no-reply@localhost}
+  email-verification:
+    frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
+    ttl-seconds: ${EMAIL_VERIFICATION_TTL_SECONDS:1800}
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
+booking:
+  hold-seconds: ${BOOKING_HOLD_SECONDS:600}
+  expiry:
+    enabled: ${BOOKING_EXPIRY_ENABLED:true}
+    poll-milliseconds: ${BOOKING_EXPIRY_POLL_MILLISECONDS:30000}
+
+vnpay:
+  enabled: ${VNPAY_ENABLED:false}
+  payment-url: ${VNPAY_PAYMENT_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+  tmn-code: ${VNPAY_TMN_CODE:}
+  hash-secret: ${VNPAY_HASH_SECRET:}
+  return-url: ${VNPAY_RETURN_URL:http://localhost:5173/payment/return}
+
+security:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: ticket-booking
+    audience: ticket-booking-api
+    access-token-seconds: ${JWT_ACCESS_TOKEN_SECONDS:900}
 
 server:
   port: ${SERVER_PORT:8080}

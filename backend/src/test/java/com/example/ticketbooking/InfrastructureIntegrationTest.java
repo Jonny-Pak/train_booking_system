@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.FlywayException;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -25,18 +27,184 @@ class InfrastructureIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired Flyway flyway;
+    @Autowired DataSource dataSource;
+
+    @Test
+    void upgradeFromV1NormalizesExistingEmailWithoutChangingAccount() {
+        String schema = "p2_upgrade_" + java.util.UUID.randomUUID().toString().replace("-", "");
+        jdbc.execute("CREATE SCHEMA " + schema);
+        try {
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).target("1").load().migrate();
+            jdbc.update("INSERT INTO " + schema + ".users(full_name,email,password_hash) VALUES (?,?,?)",
+                    "Existing user", "  EXISTING@EXAMPLE.INVALID  ", "existing-hash");
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).load().migrate();
+            assertThat(jdbc.queryForObject("SELECT email FROM " + schema + ".users", String.class))
+                    .isEqualTo("existing@example.invalid");
+            assertThat(jdbc.queryForObject("SELECT password_hash FROM " + schema + ".users", String.class))
+                    .isEqualTo("existing-hash");
+            assertThat(jdbc.queryForObject("SELECT email_verified FROM " + schema + ".users", Boolean.class)).isTrue();
+            jdbc.update("INSERT INTO " + schema + ".users(full_name,email,password_hash) VALUES ('New', 'new@example.invalid', 'hash')");
+            assertThat(jdbc.queryForObject("SELECT email_verified FROM " + schema + ".users WHERE email = 'new@example.invalid'", Boolean.class)).isFalse();
+        } finally { jdbc.execute("DROP SCHEMA " + schema + " CASCADE"); }
+    }
+
+    @Test
+    void upgradeCollisionFailsAtomicallyAndPreservesBothExistingAccounts() {
+        String schema = "p2_collision_" + java.util.UUID.randomUUID().toString().replace("-", "");
+        jdbc.execute("CREATE SCHEMA " + schema);
+        try {
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).target("1").load().migrate();
+            jdbc.update("INSERT INTO " + schema + ".users(full_name,email,password_hash) VALUES (?,?,?),(?,?,?)",
+                    "First", "Dupe@example.invalid", "first-hash", "Second", "dupe@example.invalid", "second-hash");
+            assertThatThrownBy(() -> Flyway.configure().dataSource(dataSource).schemas(schema)
+                    .defaultSchema(schema).load().migrate()).isInstanceOf(FlywayException.class);
+            assertThat(jdbc.queryForList("SELECT email FROM " + schema + ".users", String.class))
+                    .containsExactlyInAnyOrder("Dupe@example.invalid", "dupe@example.invalid");
+        } finally { jdbc.execute("DROP SCHEMA " + schema + " CASCADE"); }
+    }
 
     @Test
     void migrationCreatesAllNineBusinessTables() {
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("1");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("10");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         assertThat(jdbc.queryForList("""
                 SELECT table_name FROM information_schema.tables
                 WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
                   AND table_name <> 'flyway_schema_history'
                 """, String.class)).containsExactlyInAnyOrder("users", "routes", "vehicles",
-                "seats", "trips", "bookings", "booking_seats", "payments", "tickets");
+                "seats", "trips", "bookings", "booking_seats", "payments", "tickets", "site_settings");
         assertThat(jdbc.queryForObject("SHOW TIME ZONE", String.class)).isEqualTo("UTC");
+    }
+
+    @Test
+    void standardSampleSeedCreatesCorrectFleetAndDoesNotDuplicateTrips() throws Exception {
+        String schema = "seat_seed_" + java.util.UUID.randomUUID().toString().replace("-", "");
+        jdbc.execute("CREATE SCHEMA " + schema);
+        try {
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).load().migrate();
+            String sql = java.nio.file.Files.readString(java.nio.file.Path.of("../database/03_sample_trips.sql"));
+            try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+                connection.setSchema(schema);
+                statement.execute(sql);
+                statement.execute(sql);
+                try (var result = statement.executeQuery("SELECT count(*) FROM seats")) {
+                    result.next();
+                    assertThat(result.getInt(1)).isEqualTo(1004);
+                }
+                try (var result = statement.executeQuery("SELECT count(*) FROM trips")) {
+                    result.next();
+                    assertThat(result.getInt(1)).isEqualTo(70);
+                }
+                connection.setSchema("public");
+            }
+        } finally { jdbc.execute("DROP SCHEMA " + schema + " CASCADE"); }
+    }
+
+    @Test
+    void fixedCalendarAddsFiveBusesAndFiveTrainsDailyWithoutChangingExistingData() throws Exception {
+        String schema = "calendar_seed_" + java.util.UUID.randomUUID().toString().replace("-", "");
+        jdbc.execute("CREATE SCHEMA " + schema);
+        try {
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).load().migrate();
+            String oldSeed = java.nio.file.Files.readString(java.nio.file.Path.of("../database/03_sample_trips.sql"));
+            String calendar = java.nio.file.Files.readString(java.nio.file.Path.of("../database/04_sample_trips_20261027_20261110.sql"));
+            try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+                connection.setSchema(schema);
+                statement.execute(oldSeed);
+                String existingTrips;
+                String existingSeats;
+                try (var result = statement.executeQuery("SELECT md5(string_agg(row_to_json(t)::text, '' ORDER BY t.id)) FROM trips t")) {
+                    result.next(); existingTrips = result.getString(1);
+                }
+                try (var result = statement.executeQuery("SELECT md5(string_agg(row_to_json(s)::text, '' ORDER BY s.id)) FROM seats s")) {
+                    result.next(); existingSeats = result.getString(1);
+                }
+                statement.execute(calendar);
+                statement.execute(calendar);
+                try (var result = statement.executeQuery("""
+                        SELECT count(*) FROM trips t JOIN vehicles v ON v.id=t.vehicle_id
+                        WHERE v.vehicle_code LIKE 'SAMPLE-2026-%'
+                        """)) {
+                    result.next(); assertThat(result.getInt(1)).isEqualTo(150);
+                }
+                try (var result = statement.executeQuery("""
+                        SELECT count(*), min(day), max(day), min(total), max(total), min(hours), max(hours) FROM (
+                          SELECT (t.departure_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS day,
+                            v.vehicle_type, count(*) AS total,
+                            count(DISTINCT (t.departure_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::time) AS hours
+                          FROM trips t JOIN vehicles v ON v.id=t.vehicle_id
+                          WHERE v.vehicle_code LIKE 'SAMPLE-2026-%' GROUP BY 1,2
+                        ) daily
+                        """)) {
+                    result.next();
+                    assertThat(result.getInt(1)).isEqualTo(30);
+                    assertThat(result.getString(2)).isEqualTo("2026-10-27");
+                    assertThat(result.getString(3)).isEqualTo("2026-11-10");
+                    for (int column = 4; column <= 7; column++) assertThat(result.getInt(column)).isEqualTo(5);
+                }
+                try (var result = statement.executeQuery("""
+                        SELECT count(*) FROM trips a JOIN trips b ON a.id < b.id AND a.vehicle_id=b.vehicle_id
+                        WHERE a.status <> 'CANCELLED' AND b.status <> 'CANCELLED'
+                          AND a.departure_at < b.arrival_at AND a.arrival_at > b.departure_at
+                        """)) {
+                    result.next(); assertThat(result.getInt(1)).isZero();
+                }
+                try (var result = statement.executeQuery("""
+                        SELECT md5(string_agg(row_to_json(t)::text, '' ORDER BY t.id)) FROM trips t
+                        JOIN vehicles v ON v.id=t.vehicle_id WHERE v.vehicle_code NOT LIKE 'SAMPLE-2026-%'
+                        """)) {
+                    result.next(); assertThat(result.getString(1)).isEqualTo(existingTrips);
+                }
+                try (var result = statement.executeQuery("""
+                        SELECT md5(string_agg(row_to_json(s)::text, '' ORDER BY s.id)) FROM seats s
+                        JOIN vehicles v ON v.id=s.vehicle_id WHERE v.vehicle_code NOT LIKE 'SAMPLE-2026-%'
+                        """)) {
+                    result.next(); assertThat(result.getString(1)).isEqualTo(existingSeats);
+                }
+                try (var result = statement.executeQuery("""
+                        SELECT v.vehicle_type, count(*) FROM seats s JOIN vehicles v ON v.id=s.vehicle_id
+                        WHERE v.vehicle_code LIKE 'SAMPLE-2026-%' GROUP BY v.vehicle_type ORDER BY v.vehicle_type
+                        """)) {
+                    result.next(); assertThat(result.getString(1)).isEqualTo("BUS"); assertThat(result.getInt(2)).isEqualTo(170);
+                    result.next(); assertThat(result.getString(1)).isEqualTo("TRAIN"); assertThat(result.getInt(2)).isEqualTo(2170);
+                }
+                connection.setSchema("public");
+            }
+        } finally { jdbc.execute("DROP SCHEMA " + schema + " CASCADE"); }
+    }
+
+    @Test
+    void busUpgradeAddsSeatsWithoutChangingExistingBookingSeatIds() throws Exception {
+        String schema = "bus_upgrade_" + java.util.UUID.randomUUID().toString().replace("-", "");
+        jdbc.execute("CREATE SCHEMA " + schema);
+        try {
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).target("7").load().migrate();
+            try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+                connection.setSchema(schema);
+                statement.execute("""
+                    INSERT INTO users(full_name,email,password_hash) VALUES('Legacy','legacy@example.invalid','unused');
+                    INSERT INTO routes(origin,destination) VALUES('A','B');
+                    INSERT INTO vehicles(vehicle_code,vehicle_type,display_name,seat_layout) VALUES('UPGRADE-34','BUS','Legacy bus','BUS_16');
+                    INSERT INTO seats(vehicle_id,seat_code,seat_class,coach_number,deck_number,position_number)
+                      SELECT 1,'A'||n,'STANDARD',0,1,n FROM generate_series(1,16) n;
+                    INSERT INTO trips(route_id,vehicle_id,departure_at,arrival_at,base_price)
+                      VALUES(1,1,CURRENT_TIMESTAMP+INTERVAL '1 day',CURRENT_TIMESTAMP+INTERVAL '2 days',100000);
+                    INSERT INTO bookings(booking_code,user_id,trip_id,vehicle_id,hold_expires_at,total_amount)
+                      VALUES('LEGACY-BOOKING',1,1,1,CURRENT_TIMESTAMP+INTERVAL '10 minutes',100000);
+                    INSERT INTO booking_seats(booking_id,trip_id,vehicle_id,seat_id,unit_price) VALUES(1,1,1,16,100000);
+                    """);
+                connection.setSchema("public");
+            }
+            var original = jdbc.queryForList("SELECT id FROM " + schema + ".seats ORDER BY id", Long.class);
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).load().migrate();
+            assertThat(jdbc.queryForObject("SELECT seat_layout FROM " + schema + ".vehicles", String.class)).isEqualTo("BUS_SLEEPER_34");
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema + ".seats", Long.class)).isEqualTo(34);
+            assertThat(jdbc.queryForList("SELECT id FROM " + schema + ".seats WHERE position_number<=16 ORDER BY id", Long.class)).isEqualTo(original);
+            assertThat(jdbc.queryForObject("SELECT seat_id FROM " + schema + ".booking_seats", Long.class)).isEqualTo(16);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema + ".bookings", Long.class)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema + ".seats WHERE deck_number=1 AND seat_class='BUS_SLEEPER'", Long.class)).isEqualTo(17);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema + ".seats WHERE deck_number=2 AND seat_class='BUS_SLEEPER'", Long.class)).isEqualTo(17);
+        } finally { jdbc.execute("DROP SCHEMA " + schema + " CASCADE"); }
     }
 
     @Test
@@ -58,7 +226,7 @@ class InfrastructureIntegrationTest {
 
     @Test
     @WithMockUser(roles = "CUSTOMER")
-    void authenticatedRequestsAreDeniedUntilP2DefinesTheirPermissions() throws Exception {
+    void customerCannotAccessAdminEndpoints() throws Exception {
         mvc.perform(get("/api/v1/admin/bookings"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));

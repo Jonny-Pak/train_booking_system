@@ -258,6 +258,8 @@ Nếu backend đang chạy ở cổng 8080, chỉ giữ một phiên backend; kh
 - [Contract Booking API](docs/booking-api.md)
 - [Báo cáo kiểm chứng P4](docs/P4-report.md)
 - [Frontend README](frontend/README.md)
+- [Deploy backend lên Render với Neon PostgreSQL](docs/render-neon.md) — profile prod, JDBC SSL, biến môi trường và quy trình duyệt migration trước khởi tạo.
+- [Audit an toàn V1–V10 trước khởi tạo Neon](docs/neon-migration-safety.md) — kiểm thử cluster tạm độc lập, giữ ID/lịch sử và rollback DDL.
 - [Hướng dẫn đặt vé, trình soạn thảo Admin và thay logo](docs/site-content.md) — khách truy cập `/booking-guide`, Admin quản lý tại `/admin/site`; Flyway V10 lưu cấu hình trong PostgreSQL.
 - [Báo cáo kiểm chứng P5](docs/P5-report.md)
 - [API VNPAY Sandbox và vé](docs/payment-api.md)

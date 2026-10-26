@@ -1,0 +1,31 @@
+# Reference only: enter real values in Render Dashboard > Environment.
+# This is NOT a real credential file. Replace every example domain and placeholder.
+SPRING_PROFILES_ACTIVE=prod
+SPRING_DATASOURCE_URL=jdbc:postgresql://ep-example.ap-southeast-1.aws.neon.tech:5432/neondb?sslmode=require&channelBinding=require
+SPRING_DATASOURCE_USERNAME=neondb_owner
+SPRING_DATASOURCE_PASSWORD=SET_IN_RENDER_ONLY
+JWT_SECRET=SET_RANDOM_BASE64_SECRET_IN_RENDER_ONLY
+
+# Keep false until V1-V10 and the target database have been reviewed.
+# A fresh empty database cannot pass Hibernate validation until approved migrations run.
+SPRING_FLYWAY_ENABLED=false
+
+APP_FRONTEND_URL=https://your-frontend.vercel.app
+APP_CORS_ALLOWED_ORIGINS=https://your-frontend.vercel.app
+
+# Gmail SMTP requires a Render plan/network that allows outbound port 587.
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=SET_SENDER_IN_RENDER
+MAIL_PASSWORD=SET_APP_PASSWORD_IN_RENDER_ONLY
+MAIL_FROM=SET_SENDER_IN_RENDER
+MAIL_SMTP_AUTH=true
+MAIL_STARTTLS=true
+
+# Enable Sandbox only after entering keys and registering the Render IPN URL with VNPAY.
+VNPAY_ENABLED=false
+VNPAY_PAYMENT_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+VNPAY_TMN_CODE=
+VNPAY_HASH_SECRET=
+VNPAY_RETURN_URL=https://your-frontend.vercel.app/payment/return
+VNPAY_IPN_URL=https://your-backend.onrender.com/api/v1/payments/vnpay/ipn

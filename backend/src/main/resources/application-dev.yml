@@ -1,7 +1,7 @@
 # Opt in with --spring.profiles.active=dev. Credentials remain external.
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/ticket_booking}
+    url: ${SPRING_DATASOURCE_URL:${DB_URL:jdbc:postgresql://localhost:5432/ticket_booking}}
 logging:
   level:
     com.example.ticketbooking: DEBUG

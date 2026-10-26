@@ -1,0 +1,55 @@
+# Render runtime configuration. Credentials belong in Render Environment, never in this file.
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 0
+      connection-timeout: 30000
+      validation-timeout: 5000
+      idle-timeout: 300000
+      max-lifetime: 1500000
+      data-source-properties:
+        "[sslmode]": require
+        "[channelBinding]": require
+        "[connectTimeout]": 15
+        "[socketTimeout]": 60
+        "[tcpKeepAlive]": true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  sql:
+    init:
+      mode: never
+  flyway:
+    # Opt in only after reviewing V1–V10 and the target database. See docs/render-neon.md.
+    enabled: ${SPRING_FLYWAY_ENABLED:false}
+    clean-disabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+server:
+  address: 0.0.0.0
+  port: ${PORT:10000}
+  shutdown: graceful
+
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
+  email-verification:
+    frontend-url: ${APP_FRONTEND_URL}
+
+management:
+  # Hosting availability should not depend on an SMTP probe on every request.
+  # Email registration still requires a working SMTP service; see Render plan limitations.
+  health:
+    mail:
+      enabled: false
+
+logging:
+  level:
+    root: INFO
+    com.example.ticketbooking: INFO

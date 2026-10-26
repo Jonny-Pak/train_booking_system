@@ -1,0 +1,11 @@
+.env
+.env.*
+**/.env
+**/.env.*
+target/
+src/test/
+.git/
+.local/
+.vscode/
+*.log
+*.dump

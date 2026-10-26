@@ -258,6 +258,7 @@ Nếu backend đang chạy ở cổng 8080, chỉ giữ một phiên backend; kh
 - [Contract Booking API](docs/booking-api.md)
 - [Báo cáo kiểm chứng P4](docs/P4-report.md)
 - [Frontend README](frontend/README.md)
+- [Hướng dẫn đặt vé, trình soạn thảo Admin và thay logo](docs/site-content.md) — khách truy cập `/booking-guide`, Admin quản lý tại `/admin/site`; Flyway V10 lưu cấu hình trong PostgreSQL.
 - [Báo cáo kiểm chứng P5](docs/P5-report.md)
 - [API VNPAY Sandbox và vé](docs/payment-api.md)
 - [Báo cáo kiểm chứng P6](docs/P6-report.md)

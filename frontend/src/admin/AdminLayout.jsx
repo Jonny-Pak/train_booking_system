@@ -15,7 +15,7 @@ function AdminContent() {
     <div className="admin-layout">
       <aside className="admin-sidebar">
         <h2>Quản trị</h2>
-        <p>Lên Đường / Admin</p>
+        <p>Vexesieure / Admin</p>
         <nav aria-label="Quản trị">
           <NavLink to="/admin" end>
             Tổng quan
@@ -25,6 +25,7 @@ function AdminContent() {
           <NavLink to="/admin/trips">Chuyến đi</NavLink>
           <NavLink to="/admin/bookings">Đơn hàng</NavLink>
           <NavLink to="/admin/reconciliation">Cần đối soát</NavLink>
+          <NavLink to="/admin/site">Nội dung & logo</NavLink>
         </nav>
       </aside>
       <section className="admin-content">

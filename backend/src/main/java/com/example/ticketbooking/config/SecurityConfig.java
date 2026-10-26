@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/site/settings", "/api/v1/site/logo").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/payments/vnpay/ipn").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/payments/*",
                                 "/api/v1/bookings/*/payments", "/api/v1/bookings/*/tickets").hasAnyRole("CUSTOMER", "ADMIN")

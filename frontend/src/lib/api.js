@@ -4,6 +4,10 @@ const baseUrl = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(
 );
 
 const messages = {
+  SITE_CHANGED:
+    "Nội dung đã được cập nhật ở phiên khác. Tải lại trang trước khi lưu để tránh ghi đè.",
+  GUIDE_EMPTY: "Hướng dẫn phải có nội dung văn bản.",
+  INVALID_LOGO: "Ảnh phải là PNG/JPG tối đa 2 MB, mỗi chiều từ 16 đến 4096 px.",
   STANDARD_LAYOUT_LOCKED:
     "Sơ đồ chuẩn đã cố định số chỗ. Không thể thêm, sửa hoặc xóa riêng lẻ.",
   INVALID_DATE_RANGE:
@@ -119,4 +123,8 @@ export function tripQuery(filters, page = 0) {
     if (value) query.set(key, value);
   }
   return "/trips?" + query.toString();
+}
+
+export function siteLogoUrl(revision) {
+  return baseUrl + "/site/logo?v=" + revision;
 }

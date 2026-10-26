@@ -1,5 +1,5 @@
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
-import { ArrowUpRight, Globe, LogOut, Ticket, TrainFront } from "lucide-react";
+import { ArrowUpRight, Globe, LogOut, Ticket } from "lucide-react";
 import { useAuth } from "./auth/AuthContext";
 import RequireAuth from "./auth/RequireAuth";
 import SearchPage from "./pages/SearchPage";
@@ -16,6 +16,12 @@ import AdminDashboard from "./admin/AdminDashboard";
 import AdminCatalog from "./admin/AdminCatalog";
 import AdminBookings from "./admin/AdminBookings";
 import AdminBookingDetail from "./admin/AdminBookingDetail";
+import { lazy, Suspense } from "react";
+import BookingGuidePage from "./pages/BookingGuidePage";
+import BrandLogo from "./site/BrandLogo";
+import SiteFooter from "./components/SiteFooter";
+
+const AdminSiteSettings = lazy(() => import("./admin/AdminSiteSettings"));
 
 export default function App() {
   const { user, logout } = useAuth();
@@ -28,11 +34,8 @@ export default function App() {
         Đến nội dung chính
       </a>
       <header className="site-header">
-        <Link to="/" className="brand" aria-label="Lên Đường — Trang chủ">
-          <span>
-            <TrainFront size={23} />
-          </span>
-          lên đường<span className="brand-dot">.</span>
+        <Link to="/" className="brand" aria-label="Vexesieure — Trang chủ">
+          <BrandLogo />
         </Link>
         <p className="brand-promise">
           Đặt vé tàu xe trực tuyến
@@ -47,9 +50,9 @@ export default function App() {
           <NavLink to="/bookings">
             <Ticket size={16} /> Đơn hàng của tôi
           </NavLink>
-          <a className="header-guide" href="/#booking-guide">
+          <Link className="header-guide" to="/booking-guide">
             Hướng dẫn đặt vé
-          </a>
+          </Link>
         </nav>
         <span className="header-language">
           <Globe size={17} /> Tiếng Việt
@@ -93,6 +96,14 @@ export default function App() {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route
+              path="site"
+              element={
+                <Suspense fallback={<p>Đang tải trình soạn thảo…</p>}>
+                  <AdminSiteSettings />
+                </Suspense>
+              }
+            />
+            <Route
               path="routes"
               element={<AdminCatalog key="routes" kind="routes" />}
             />
@@ -135,6 +146,7 @@ export default function App() {
             element={<VerifyEmailPage key={location.hash} />}
           />
           <Route path="/" element={<SearchPage />} />
+          <Route path="/booking-guide" element={<BookingGuidePage />} />
           <Route
             path="/trips/:id"
             element={<TripPage key={location.pathname} />}
@@ -190,13 +202,7 @@ export default function App() {
           />
         </Routes>
       </main>
-      <footer className="site-footer">
-        <Link to="/" className="footer-brand">
-          lên đường.
-        </Link>
-        <p>Mỗi hành trình, một khởi đầu mới.</p>
-        <span>Đồ án hệ thống đặt vé tàu xe · 2026</span>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

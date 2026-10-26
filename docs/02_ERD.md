@@ -1,5 +1,7 @@
 # ERD PostgreSQL
 
+V10 thêm bảng cấu hình độc lập `site_settings` (một dòng): tiêu đề/HTML hướng dẫn, logo PNG, revision và thời điểm cập nhật. Chín bảng nghiệp vụ dưới đây giữ nguyên. Xem [quản lý nội dung và logo](site-content.md).
+
 V7–V9 giữ nguyên chín bảng và quan hệ. `vehicles.seat_layout` hiện phân biệt CUSTOM/BUS_SLEEPER_34/TRAIN_11; `seats` có `coach_number`, `compartment_number`, `deck_number`, `position_number`, cùng CHECK và unique index cho vị trí. V8 mở rộng xe cũ lên 34 chỗ; V9 sửa thành giường nằm hai tầng ×17, giữ nguyên ID và mã chỗ đã có. Ghế legacy giữ tọa độ null để bảo toàn lịch sử. Chi tiết tại [seat-layouts.md](seat-layouts.md).
 
 ```mermaid

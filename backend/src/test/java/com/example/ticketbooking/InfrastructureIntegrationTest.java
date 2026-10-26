@@ -65,14 +65,14 @@ class InfrastructureIntegrationTest {
 
     @Test
     void migrationCreatesAllNineBusinessTables() {
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("9");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("10");
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         assertThat(jdbc.queryForList("""
                 SELECT table_name FROM information_schema.tables
                 WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
                   AND table_name <> 'flyway_schema_history'
                 """, String.class)).containsExactlyInAnyOrder("users", "routes", "vehicles",
-                "seats", "trips", "bookings", "booking_seats", "payments", "tickets");
+                "seats", "trips", "bookings", "booking_seats", "payments", "tickets", "site_settings");
         assertThat(jdbc.queryForObject("SHOW TIME ZONE", String.class)).isEqualTo("UTC");
     }
 
@@ -94,6 +94,79 @@ class InfrastructureIntegrationTest {
                 try (var result = statement.executeQuery("SELECT count(*) FROM trips")) {
                     result.next();
                     assertThat(result.getInt(1)).isEqualTo(70);
+                }
+                connection.setSchema("public");
+            }
+        } finally { jdbc.execute("DROP SCHEMA " + schema + " CASCADE"); }
+    }
+
+    @Test
+    void fixedCalendarAddsFiveBusesAndFiveTrainsDailyWithoutChangingExistingData() throws Exception {
+        String schema = "calendar_seed_" + java.util.UUID.randomUUID().toString().replace("-", "");
+        jdbc.execute("CREATE SCHEMA " + schema);
+        try {
+            Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).load().migrate();
+            String oldSeed = java.nio.file.Files.readString(java.nio.file.Path.of("../database/03_sample_trips.sql"));
+            String calendar = java.nio.file.Files.readString(java.nio.file.Path.of("../database/04_sample_trips_20261027_20261110.sql"));
+            try (var connection = dataSource.getConnection(); var statement = connection.createStatement()) {
+                connection.setSchema(schema);
+                statement.execute(oldSeed);
+                String existingTrips;
+                String existingSeats;
+                try (var result = statement.executeQuery("SELECT md5(string_agg(row_to_json(t)::text, '' ORDER BY t.id)) FROM trips t")) {
+                    result.next(); existingTrips = result.getString(1);
+                }
+                try (var result = statement.executeQuery("SELECT md5(string_agg(row_to_json(s)::text, '' ORDER BY s.id)) FROM seats s")) {
+                    result.next(); existingSeats = result.getString(1);
+                }
+                statement.execute(calendar);
+                statement.execute(calendar);
+                try (var result = statement.executeQuery("""
+                        SELECT count(*) FROM trips t JOIN vehicles v ON v.id=t.vehicle_id
+                        WHERE v.vehicle_code LIKE 'SAMPLE-2026-%'
+                        """)) {
+                    result.next(); assertThat(result.getInt(1)).isEqualTo(150);
+                }
+                try (var result = statement.executeQuery("""
+                        SELECT count(*), min(day), max(day), min(total), max(total), min(hours), max(hours) FROM (
+                          SELECT (t.departure_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS day,
+                            v.vehicle_type, count(*) AS total,
+                            count(DISTINCT (t.departure_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::time) AS hours
+                          FROM trips t JOIN vehicles v ON v.id=t.vehicle_id
+                          WHERE v.vehicle_code LIKE 'SAMPLE-2026-%' GROUP BY 1,2
+                        ) daily
+                        """)) {
+                    result.next();
+                    assertThat(result.getInt(1)).isEqualTo(30);
+                    assertThat(result.getString(2)).isEqualTo("2026-10-27");
+                    assertThat(result.getString(3)).isEqualTo("2026-11-10");
+                    for (int column = 4; column <= 7; column++) assertThat(result.getInt(column)).isEqualTo(5);
+                }
+                try (var result = statement.executeQuery("""
+                        SELECT count(*) FROM trips a JOIN trips b ON a.id < b.id AND a.vehicle_id=b.vehicle_id
+                        WHERE a.status <> 'CANCELLED' AND b.status <> 'CANCELLED'
+                          AND a.departure_at < b.arrival_at AND a.arrival_at > b.departure_at
+                        """)) {
+                    result.next(); assertThat(result.getInt(1)).isZero();
+                }
+                try (var result = statement.executeQuery("""
+                        SELECT md5(string_agg(row_to_json(t)::text, '' ORDER BY t.id)) FROM trips t
+                        JOIN vehicles v ON v.id=t.vehicle_id WHERE v.vehicle_code NOT LIKE 'SAMPLE-2026-%'
+                        """)) {
+                    result.next(); assertThat(result.getString(1)).isEqualTo(existingTrips);
+                }
+                try (var result = statement.executeQuery("""
+                        SELECT md5(string_agg(row_to_json(s)::text, '' ORDER BY s.id)) FROM seats s
+                        JOIN vehicles v ON v.id=s.vehicle_id WHERE v.vehicle_code NOT LIKE 'SAMPLE-2026-%'
+                        """)) {
+                    result.next(); assertThat(result.getString(1)).isEqualTo(existingSeats);
+                }
+                try (var result = statement.executeQuery("""
+                        SELECT v.vehicle_type, count(*) FROM seats s JOIN vehicles v ON v.id=s.vehicle_id
+                        WHERE v.vehicle_code LIKE 'SAMPLE-2026-%' GROUP BY v.vehicle_type ORDER BY v.vehicle_type
+                        """)) {
+                    result.next(); assertThat(result.getString(1)).isEqualTo("BUS"); assertThat(result.getInt(2)).isEqualTo(170);
+                    result.next(); assertThat(result.getString(1)).isEqualTo("TRAIN"); assertThat(result.getInt(2)).isEqualTo(2170);
                 }
                 connection.setSchema("public");
             }

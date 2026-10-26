@@ -1,3 +1,4 @@
+import { seatDescription, seatClassLabels } from "../lib/seats";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
@@ -67,9 +68,12 @@ export default function TicketsPage() {
                   <dd>{ticket.passengerName}</dd>
                 </div>
                 <div>
-                  <dt>Ghế</dt>
+                  <dt>
+                    {ticket.seatClass === "BUS_SLEEPER" ? "Giường" : "Ghế"}
+                  </dt>
                   <dd>
-                    {ticket.seatCode} · {ticket.seatClass}
+                    {seatDescription(ticket)} ·{" "}
+                    {seatClassLabels[ticket.seatClass] || ticket.seatClass}
                   </dd>
                 </div>
                 <div>
@@ -104,7 +108,7 @@ export default function TicketsPage() {
                 marginSize={4}
                 level="M"
               />
-              <strong>Ghế {ticket.seatCode}</strong>
+              <strong>{seatDescription(ticket)}</strong>
               <small>Vé thử nghiệm · Không dùng đi lại thực tế</small>
             </div>
           </article>

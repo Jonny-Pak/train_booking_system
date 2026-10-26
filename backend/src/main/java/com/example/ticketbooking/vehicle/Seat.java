@@ -14,6 +14,14 @@ public class Seat {
     private String seatCode;
     @Column(name = "seat_class", nullable = false, length = 40)
     private String seatClass;
+    @Column(name = "coach_number")
+    private Integer coachNumber;
+    @Column(name = "compartment_number")
+    private Integer compartmentNumber;
+    @Column(name = "deck_number")
+    private Integer deckNumber;
+    @Column(name = "position_number")
+    private Integer positionNumber;
     protected Seat() { }
     public Seat(Vehicle vehicle, SeatRequest request) {
         this.vehicle = vehicle;
@@ -27,4 +35,14 @@ public class Seat {
     public Vehicle getVehicle() { return vehicle; }
     public String getSeatCode() { return seatCode; }
     public String getSeatClass() { return seatClass; }
+    public Integer getCoachNumber() { return coachNumber; }
+    public Integer getCompartmentNumber() { return compartmentNumber; }
+    public Integer getDeckNumber() { return deckNumber; }
+    public Integer getPositionNumber() { return positionNumber; }
+    public void setPosition(int coach, Integer compartment, int deck, int position) {
+        coachNumber = coach;
+        compartmentNumber = compartment;
+        deckNumber = deck;
+        positionNumber = position;
+    }
 }

@@ -4,6 +4,8 @@ API đặt vé, giữ ghế, lịch sử và hủy đơn xem tại [booking-api.
 
 P6: [API VNPAY Sandbox, IPN và vé điện tử](payment-api.md).
 
+P7: [Admin UI và API thống kê](admin-api.md).
+
 ## Endpoint hiện tại
 
 | Method | Path | Quyền | Kết quả |

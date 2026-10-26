@@ -11,6 +11,11 @@ import TicketsPage from "./pages/TicketsPage";
 import BookingsPage from "./pages/BookingsPage";
 import BookingPage from "./pages/BookingPage";
 import { EmptyState } from "./components/Feedback";
+import AdminLayout from "./admin/AdminLayout";
+import AdminDashboard from "./admin/AdminDashboard";
+import AdminCatalog from "./admin/AdminCatalog";
+import AdminBookings from "./admin/AdminBookings";
+import AdminBookingDetail from "./admin/AdminBookingDetail";
 
 export default function App() {
   const { user, logout } = useAuth();
@@ -35,6 +40,7 @@ export default function App() {
           Chọn chuyến dễ dàng, chủ động hành trình
         </p>
         <nav aria-label="Điều hướng chính">
+          {user?.role === "ADMIN" && <NavLink to="/admin">Quản trị</NavLink>}
           <NavLink to="/" end>
             Khám phá
           </NavLink>
@@ -84,6 +90,34 @@ export default function App() {
         }
       >
         <Routes>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route
+              path="routes"
+              element={<AdminCatalog key="routes" kind="routes" />}
+            />
+            <Route
+              path="vehicles"
+              element={<AdminCatalog key="vehicles" kind="vehicles" />}
+            />
+            <Route
+              path="vehicles/:vehicleId/seats"
+              element={<AdminCatalog key={location.pathname} kind="seats" />}
+            />
+            <Route
+              path="trips"
+              element={<AdminCatalog key="trips" kind="trips" />}
+            />
+            <Route path="bookings" element={<AdminBookings key="bookings" />} />
+            <Route
+              path="bookings/:id"
+              element={<AdminBookingDetail key={location.pathname} />}
+            />
+            <Route
+              path="reconciliation"
+              element={<AdminBookings key="reconciliation" reconciliation />}
+            />
+          </Route>
           <Route
             path="/payment/return"
             element={<PaymentReturnPage key={location.search} />}

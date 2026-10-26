@@ -83,10 +83,13 @@ Trang `/payment/return` chỉ lấy txnRef từ query, yêu cầu đăng nhập 
 
 ## Cấu hình và chạy Sandbox thật
 
+Hướng dẫn Windows, Cloudflare Tunnel HTTPS giới hạn callback, cấu hình `.env`, kiểm tra routing và URL triển khai: [vnpay-sandbox-windows.md](vnpay-sandbox-windows.md).
+
 Điền `.env` gốc trên máy (không commit khóa):
 
 ```dotenv
 VNPAY_ENABLED=true
+VNPAY_PAYMENT_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
 VNPAY_TMN_CODE=<merchant-sandbox-code>
 VNPAY_HASH_SECRET=<merchant-sandbox-secret>
 VNPAY_RETURN_URL=http://localhost:5173/payment/return

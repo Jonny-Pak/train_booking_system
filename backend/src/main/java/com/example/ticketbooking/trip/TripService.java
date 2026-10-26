@@ -99,7 +99,8 @@ public class TripService {
             }
 
             TripSeatResponse response = new TripSeatResponse(
-                    seat.getId(), seat.getSeatCode(), seat.getSeatClass(), status);
+                    seat.getId(), seat.getSeatCode(), seat.getSeatClass(), status,
+                    seat.getCoachNumber(), seat.getCompartmentNumber(), seat.getDeckNumber(), seat.getPositionNumber());
             result.add(response);
         }
 

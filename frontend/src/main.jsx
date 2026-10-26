@@ -8,6 +8,8 @@ import "./home.css";
 import "./auth.css";
 import "./payment.css";
 import "./location.css";
+import "./admin.css";
+import "./seats.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

@@ -16,6 +16,8 @@ public class Vehicle {
     private String displayName;
     @Column(nullable = false)
     private boolean active;
+    @Column(name = "seat_layout", nullable = false, length = 20)
+    private String seatLayout = "CUSTOM";
     protected Vehicle() { }
     public Vehicle(VehicleRequest request) {
         update(request);
@@ -31,4 +33,6 @@ public class Vehicle {
     public VehicleType getVehicleType() { return vehicleType; }
     public String getDisplayName() { return displayName; }
     public boolean isActive() { return active; }
+    public String getSeatLayout() { return seatLayout; }
+    public void setSeatLayout(String seatLayout) { this.seatLayout = seatLayout; }
 }

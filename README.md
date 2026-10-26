@@ -151,6 +151,10 @@ Thay email ví dụ bằng tài khoản thật cần nâng quyền. API register
 
 ## P3 Catalog và tìm chuyến
 
+Sơ đồ chuẩn xe giường nằm 34 chỗ và tàu 11 toa/434 chỗ: [cấu hình, API, bảo vệ lịch sử và kiểm thử](docs/seat-layouts.md). V7 bổ sung vị trí ghế, giữ chín bảng.
+
+Hướng dẫn tích hợp VNPAY Sandbox qua HTTPS công khai trên Windows: [Cloudflare Tunnel, Return và IPN](docs/vnpay-sandbox-windows.md).
+
 ```powershell
 # toàn bộ tests + auth/catalog HTTP smoke + seed lặp + restart, trên cluster riêng
 .\scripts\Test-P3.ps1 -JavaHome 'C:\Program Files\Java\jdk-21.0.12' -Offline
@@ -258,4 +262,4 @@ Nếu backend đang chạy ở cổng 8080, chỉ giữ một phiên backend; kh
 - [API VNPAY Sandbox và vé](docs/payment-api.md)
 - [Báo cáo kiểm chứng P6](docs/P6-report.md)
 
-P6 đã có mã nguồn VNPAY Sandbox, IPN và vé điện tử. Xem [cấu hình và API P6](docs/payment-api.md). Kiểm chứng cục bộ: `.\scripts\Test-P6.ps1 -JavaHome 'C:\Program Files\Java\jdk-21.0.12' -Offline`. Demo qua VNPAY thật cần merchant Sandbox và IPN HTTPS công khai; kiểm thử cục bộ không thay thế bước đó. Tiếp theo P7: Admin UI/thống kê và nghiệm thu toàn hệ thống.
+P6 có VNPAY Sandbox, IPN và vé điện tử. Xem [cấu hình và API P6](docs/payment-api.md). P7 thêm [giao diện Admin và thống kê](docs/admin-api.md), truy cập `/admin` bằng tài khoản ADMIN. Nghiệm thu toàn hệ thống: `.\scripts\Test-P7.ps1 -JavaHome 'C:\Program Files\Java\jdk-21.0.12' -Offline`. Demo qua VNPAY thật cần merchant Sandbox và IPN HTTPS công khai; kiểm thử cục bộ không thay thế bước đó.

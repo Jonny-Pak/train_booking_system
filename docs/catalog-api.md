@@ -15,6 +15,7 @@ Base path `/api/v1`. ADMIN cần JWT Bearer theo auth contract. Các ví dụ ID
 | GET/POST | `/admin/vehicles` | ADMIN | Page phương tiện / tạo phương tiện |
 | GET/PUT/DELETE | `/admin/vehicles/{id}` | ADMIN | Chi tiết / thay thế / xóa |
 | GET/POST | `/admin/vehicles/{vehicleId}/seats` | ADMIN | Page ghế / thêm ghế |
+| POST | `/admin/vehicles/{vehicleId}/seat-layout` | ADMIN | Sinh sơ đồ chuẩn xe giường nằm 34 chỗ hoặc tàu 11 toa/434 chỗ |
 | GET/PUT/DELETE | `/admin/vehicles/{vehicleId}/seats/{seatId}` | ADMIN | Ghế đúng phương tiện / thay thế / xóa |
 | GET/POST | `/admin/trips` | ADMIN | Page chuyến mọi trạng thái / tạo chuyến |
 | GET/PUT/DELETE | `/admin/trips/{id}` | ADMIN | Chi tiết quản trị / thay thế / xóa |
@@ -30,6 +31,8 @@ GET/PUT trả 200, POST trả 201, DELETE trả 204. PUT là thay thế đầy �
 Điểm đi/đến bắt buộc, trim, tối đa 160 ký tự, phải khác nhau cả khi chỉ khác hoa/thường. Tuyến có trips không đổi endpoints và không xóa; có thể đổi active. Tắt active ẩn các chuyến khỏi public search/detail.
 
 ## Body phương tiện và ghế
+
+Sơ đồ chuẩn có tọa độ toa/khoang/tầng, bảo vệ lịch sử và hướng dẫn Admin tại [seat-layouts.md](seat-layouts.md). Layout chuẩn khóa CRUD ghế riêng lẻ; CUSTOM cũ tiếp tục tương thích.
 
 ```json
 {"vehicleCode":"BUS-01","vehicleType":"BUS","displayName":"Xe Hà Nội","active":true}

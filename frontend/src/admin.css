@@ -1,0 +1,233 @@
+.admin-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 30px;
+  padding: 32px 0 56px;
+}
+.admin-sidebar {
+  background: #082a53;
+  color: white;
+  border-radius: 18px;
+  padding: 24px 16px;
+  align-self: start;
+}
+.admin-sidebar h2,
+.admin-sidebar > p {
+  padding: 0 12px;
+}
+.admin-sidebar > p {
+  font-size: 12px;
+  opacity: 0.7;
+  margin: 8px 0 24px;
+}
+.admin-sidebar nav {
+  display: grid;
+  gap: 6px;
+}
+.admin-sidebar a {
+  padding: 13px 12px;
+  border-radius: 8px;
+}
+.admin-sidebar a.active {
+  background: #286de4;
+}
+.admin-content {
+  min-width: 0;
+}
+.admin-heading {
+  margin-bottom: 24px;
+}
+.admin-heading > p {
+  color: #65768a;
+  font-size: 14px;
+  margin: 8px 0;
+}
+.admin-heading h1 {
+  color: #102e53;
+}
+.admin-filters,
+.admin-toolbar,
+.admin-row-actions,
+.admin-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+.admin-filters {
+  align-items: end;
+}
+.admin-content label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.admin-content input,
+.admin-content select {
+  width: 100%;
+  border: 1px solid #ced8e5;
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 46px;
+}
+.admin-content input[type="checkbox"] {
+  width: 22px;
+  min-height: 22px;
+}
+.admin-content select:focus-visible {
+  outline: 3px solid #286de4;
+  outline-offset: 2px;
+}
+.admin-content .button {
+  min-height: 42px;
+  font-size: 14px;
+}
+.admin-content .button.danger {
+  background: #a82f29;
+  color: white;
+}
+.admin-content .text-button {
+  font-size: 13px;
+}
+.admin-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 20px 0;
+}
+.admin-panel,
+.admin-metrics article {
+  padding: 24px;
+  background: white;
+  border: 1px solid #dce4ee;
+  border-radius: 14px;
+  margin-bottom: 18px;
+}
+.admin-metrics article {
+  margin: 0;
+  display: grid;
+  gap: 14px;
+}
+.admin-metrics strong {
+  font-size: 30px;
+  color: #102e53;
+  overflow-wrap: anywhere;
+}
+.admin-metrics small,
+.admin-note {
+  font-size: 12px;
+  color: #65768a;
+  line-height: 1.8;
+}
+.admin-panel > p {
+  margin: 12px 0;
+}
+.admin-counts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+.admin-counts dd {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 12px 0;
+}
+.admin-counts dt {
+  font-size: 13px;
+}
+.admin-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 24px 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.admin-table-wrap {
+  width: 100%;
+  overflow: auto;
+  background: white;
+  border: 1px solid #dce4ee;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+.admin-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+.admin-table-wrap caption {
+  text-align: left;
+  padding: 16px;
+  font-weight: 600;
+}
+.admin-table-wrap th {
+  background: #edf3fb;
+  white-space: nowrap;
+}
+.admin-table-wrap td,
+.admin-table-wrap th {
+  padding: 16px;
+  border-top: 1px solid #e6ebf1;
+}
+.admin-table-wrap td p {
+  margin-top: 8px;
+  color: #65768a;
+  font-size: 12px;
+}
+.admin-pagination {
+  justify-content: flex-end;
+  font-size: 13px;
+}
+.admin-success {
+  padding: 14px;
+  background: #e7f5ed;
+  border-radius: 8px;
+}
+.admin-field-error {
+  color: #a82f29;
+}
+.admin-payment {
+  padding: 18px 0;
+  border-bottom: 1px solid #e6ebf1;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .admin-layout {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .admin-sidebar nav {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .admin-sidebar > p {
+    margin-bottom: 12px;
+  }
+}
+@media (max-width: 600px) {
+  .admin-layout {
+    padding-top: 20px;
+  }
+  .admin-sidebar nav {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .admin-metrics,
+  .admin-form fieldset {
+    grid-template-columns: 1fr;
+  }
+  .admin-counts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .admin-panel {
+    padding: 18px;
+  }
+  .admin-table-wrap table {
+    min-width: 580px;
+  }
+  .admin-row-actions {
+    min-width: 90px;
+  }
+}

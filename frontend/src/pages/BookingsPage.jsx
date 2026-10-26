@@ -1,3 +1,4 @@
+import { seatDescription } from "../lib/seats";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowRight, RefreshCw, Ticket } from "lucide-react";
@@ -88,7 +89,10 @@ export default function BookingsPage() {
                 <div className="history-info">
                   <span>CHUYẾN #{booking.tripId}</span>
                   <h2>
-                    Ghế {booking.seats.map((seat) => seat.seatCode).join(", ")}
+                    {booking.seats.every((seat) => seat.coachNumber == null)
+                      ? "Ghế "
+                      : ""}
+                    {booking.seats.map(seatDescription).join(", ")}
                   </h2>
                   <p>
                     Đặt lúc {time(booking.createdAt)}, {date(booking.createdAt)}

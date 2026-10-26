@@ -1,5 +1,5 @@
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
-import { ArrowUpRight, Globe, LogOut, Ticket, TrainFront } from "lucide-react";
+import { ArrowUpRight, Globe, LogOut, Ticket } from "lucide-react";
 import { useAuth } from "./auth/AuthContext";
 import RequireAuth from "./auth/RequireAuth";
 import SearchPage from "./pages/SearchPage";
@@ -11,6 +11,17 @@ import TicketsPage from "./pages/TicketsPage";
 import BookingsPage from "./pages/BookingsPage";
 import BookingPage from "./pages/BookingPage";
 import { EmptyState } from "./components/Feedback";
+import AdminLayout from "./admin/AdminLayout";
+import AdminDashboard from "./admin/AdminDashboard";
+import AdminCatalog from "./admin/AdminCatalog";
+import AdminBookings from "./admin/AdminBookings";
+import AdminBookingDetail from "./admin/AdminBookingDetail";
+import { lazy, Suspense } from "react";
+import BookingGuidePage from "./pages/BookingGuidePage";
+import BrandLogo from "./site/BrandLogo";
+import SiteFooter from "./components/SiteFooter";
+
+const AdminSiteSettings = lazy(() => import("./admin/AdminSiteSettings"));
 
 export default function App() {
   const { user, logout } = useAuth();
@@ -23,11 +34,8 @@ export default function App() {
         Đến nội dung chính
       </a>
       <header className="site-header">
-        <Link to="/" className="brand" aria-label="Lên Đường — Trang chủ">
-          <span>
-            <TrainFront size={23} />
-          </span>
-          lên đường<span className="brand-dot">.</span>
+        <Link to="/" className="brand" aria-label="Vexesieure — Trang chủ">
+          <BrandLogo />
         </Link>
         <p className="brand-promise">
           Đặt vé tàu xe trực tuyến
@@ -35,15 +43,16 @@ export default function App() {
           Chọn chuyến dễ dàng, chủ động hành trình
         </p>
         <nav aria-label="Điều hướng chính">
+          {user?.role === "ADMIN" && <NavLink to="/admin">Quản trị</NavLink>}
           <NavLink to="/" end>
             Khám phá
           </NavLink>
           <NavLink to="/bookings">
             <Ticket size={16} /> Đơn hàng của tôi
           </NavLink>
-          <a className="header-guide" href="/#booking-guide">
+          <Link className="header-guide" to="/booking-guide">
             Hướng dẫn đặt vé
-          </a>
+          </Link>
         </nav>
         <span className="header-language">
           <Globe size={17} /> Tiếng Việt
@@ -84,6 +93,42 @@ export default function App() {
         }
       >
         <Routes>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route
+              path="site"
+              element={
+                <Suspense fallback={<p>Đang tải trình soạn thảo…</p>}>
+                  <AdminSiteSettings />
+                </Suspense>
+              }
+            />
+            <Route
+              path="routes"
+              element={<AdminCatalog key="routes" kind="routes" />}
+            />
+            <Route
+              path="vehicles"
+              element={<AdminCatalog key="vehicles" kind="vehicles" />}
+            />
+            <Route
+              path="vehicles/:vehicleId/seats"
+              element={<AdminCatalog key={location.pathname} kind="seats" />}
+            />
+            <Route
+              path="trips"
+              element={<AdminCatalog key="trips" kind="trips" />}
+            />
+            <Route path="bookings" element={<AdminBookings key="bookings" />} />
+            <Route
+              path="bookings/:id"
+              element={<AdminBookingDetail key={location.pathname} />}
+            />
+            <Route
+              path="reconciliation"
+              element={<AdminBookings key="reconciliation" reconciliation />}
+            />
+          </Route>
           <Route
             path="/payment/return"
             element={<PaymentReturnPage key={location.search} />}
@@ -101,6 +146,7 @@ export default function App() {
             element={<VerifyEmailPage key={location.hash} />}
           />
           <Route path="/" element={<SearchPage />} />
+          <Route path="/booking-guide" element={<BookingGuidePage />} />
           <Route
             path="/trips/:id"
             element={<TripPage key={location.pathname} />}
@@ -156,13 +202,7 @@ export default function App() {
           />
         </Routes>
       </main>
-      <footer className="site-footer">
-        <Link to="/" className="footer-brand">
-          lên đường.
-        </Link>
-        <p>Mỗi hành trình, một khởi đầu mới.</p>
-        <span>Đồ án hệ thống đặt vé tàu xe · 2026</span>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

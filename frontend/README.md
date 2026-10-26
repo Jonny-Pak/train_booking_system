@@ -84,6 +84,8 @@ Production phục vụ dist/ qua web server, cấu hình SPA fallback về index
 
 ## Quy tắc hiển thị
 
+P7: mở `/admin` bằng tài khoản ADMIN để quản lý tuyến/phương tiện/ghế/chuyến, tra cứu đơn/đối soát và xem thống kê. Hướng dẫn cấp quyền và nghiệm thu toàn hệ thống tại [admin-api.md](../docs/admin-api.md). Các trang nằm trong `src/admin/`; không có tài khoản Admin mặc định.
+
 Điểm đi/đến có dropdown lấy từ API tuyến đang có chuyến; lọc không dấu, bàn phím, tuyến có hướng và mobile. Chi tiết tại [location-picker.md](../docs/location-picker.md).
 
 Ngày/giờ theo Asia/Ho_Chi_Minh, tiền VND. Giá tạm tính chỉ hỗ trợ chọn ghế; tổng chính thức lấy từ booking response. Ghế được chọn chưa được giữ cho đến khi POST thành công. Conflict 409 tải lại sơ đồ và bỏ lựa chọn cũ, không tự gửi lại POST.

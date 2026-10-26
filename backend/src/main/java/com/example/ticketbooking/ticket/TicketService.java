@@ -19,7 +19,8 @@ public class TicketService {
     private static final String SELECT = """
         SELECT tk.ticket_code, b.id AS booking_id, b.booking_code, u.full_name,
                r.origin, r.destination, v.display_name, v.vehicle_code, v.vehicle_type,
-               tr.departure_at, tr.arrival_at, s.seat_code, s.seat_class, bs.unit_price, tk.issued_at
+               tr.departure_at, tr.arrival_at, s.seat_code, s.seat_class, bs.unit_price, tk.issued_at,
+               s.coach_number, s.compartment_number, s.deck_number, s.position_number
         FROM tickets tk JOIN booking_seats bs ON bs.id = tk.booking_seat_id
         JOIN bookings b ON b.id = bs.booking_id JOIN users u ON u.id = b.user_id
         JOIN trips tr ON tr.id = b.trip_id JOIN routes r ON r.id = tr.route_id
@@ -55,6 +56,8 @@ public class TicketService {
                 row.getString("display_name"), row.getString("vehicle_code"), row.getString("vehicle_type"),
                 row.getTimestamp("departure_at").toInstant(), row.getTimestamp("arrival_at").toInstant(),
                 row.getString("seat_code"), row.getString("seat_class"), row.getBigDecimal("unit_price"),
-                row.getTimestamp("issued_at").toInstant(), "LEN_DUONG:" + row.getString("ticket_code")), bookingId);
+                row.getTimestamp("issued_at").toInstant(), "LEN_DUONG:" + row.getString("ticket_code"),
+                row.getObject("coach_number", Integer.class), row.getObject("compartment_number", Integer.class),
+                row.getObject("deck_number", Integer.class), row.getObject("position_number", Integer.class)), bookingId);
     }
 }

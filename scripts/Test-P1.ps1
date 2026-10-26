@@ -8,7 +8,8 @@ param(
     [switch]$CatalogSmoke,
     [switch]$BookingSmoke,
     [switch]$FrontendSmoke,
-    [switch]$PaymentSmoke
+    [switch]$PaymentSmoke,
+    [switch]$AdminSmoke
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,7 +23,7 @@ foreach ($binary in @($java, (Join-Path $PostgresBin 'initdb.exe'),
 }
 
 # Every run owns a new cluster, databases and application process. Existing services are untouched.
-$phase = if ($PaymentSmoke) { 'P6' } elseif ($FrontendSmoke) { 'P5' } elseif ($BookingSmoke) { 'P4' } elseif ($CatalogSmoke) { 'P3' } elseif ($AuthSmoke) { 'P2' } else { 'P1' }
+$phase = if ($AdminSmoke) { 'P7' } elseif ($PaymentSmoke) { 'P6' } elseif ($FrontendSmoke) { 'P5' } elseif ($BookingSmoke) { 'P4' } elseif ($CatalogSmoke) { 'P3' } elseif ($AuthSmoke) { 'P2' } else { 'P1' }
 $run = Join-Path $root ('.local\' + $phase.ToLowerInvariant() + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8))
 New-Item -ItemType Directory -Path $run -Force | Out-Null
 $socketDirectory = Join-Path $root '.local\sockets'
@@ -223,7 +224,7 @@ $variables = @('JAVA_HOME','DB_URL','DB_USERNAME','DB_PASSWORD','TEST_DB_URL',
     'API_PROXY_TARGET','E2E_PORT','TEST_ARTIFACT_DIR','APP_CORS_ALLOWED_ORIGINS',
     'MAIL_HOST','MAIL_PORT','MAIL_FROM','MAIL_USERNAME','MAIL_PASSWORD','MAIL_SMTP_AUTH','MAIL_STARTTLS',
     'TEST_MAIL_HTTP_PORT','TEST_MAIL_URL','APP_FRONTEND_URL','EMAIL_VERIFICATION_TTL_SECONDS',
-    'VNPAY_ENABLED','VNPAY_TMN_CODE','VNPAY_HASH_SECRET','VNPAY_RETURN_URL','TEST_P6')
+    'VNPAY_ENABLED','VNPAY_TMN_CODE','VNPAY_HASH_SECRET','VNPAY_RETURN_URL','TEST_P6','TEST_P7','TEST_ADMIN_TOKEN')
 $previous = @{}
 foreach ($name in $variables) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 $dbPort = Get-FreePort
@@ -256,6 +257,8 @@ try {
     # Never use a real merchant secret or contact the payment gateway in automated tests.
     $env:VNPAY_ENABLED = if ($PaymentSmoke) { 'true' } else { 'false' }
     $env:TEST_P6 = if ($PaymentSmoke) { 'true' } else { 'false' }
+    $env:TEST_P7 = if ($AdminSmoke) { 'true' } else { 'false' }
+    Remove-Item Env:TEST_ADMIN_TOKEN -ErrorAction SilentlyContinue
     $env:VNPAY_TMN_CODE = 'P6TEST01'
     $env:VNPAY_HASH_SECRET = [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
     $env:VNPAY_RETURN_URL = 'http://localhost:5173/payment/return'
@@ -299,10 +302,16 @@ try {
     $env:SERVER_PORT = "$httpPort"
     Push-Location $backend
     try {
+        # Integration tests own their clocks and invoke expiry explicitly. A scheduler from
+        # another cached Spring context must not expire fixtures using a different clock.
+        $env:BOOKING_EXPIRY_ENABLED = 'false'
         $mavenArguments = @('-B', 'clean', 'verify')
         if ($Offline) { $mavenArguments = @('-o') + $mavenArguments }
         Invoke-Native (Join-Path $backend 'mvnw.cmd') $mavenArguments
-    } finally { Pop-Location }
+    } finally {
+        $env:BOOKING_EXPIRY_ENABLED = 'true'
+        Pop-Location
+    }
 
     # Two real launches verify migration on an empty DB and no schema recreation on restart.
     Push-Location $backend
@@ -314,6 +323,7 @@ try {
             if ($CatalogSmoke -and $attempt -eq 1) { Invoke-CatalogSmoke $smokeToken }
             if ($BookingSmoke -and $attempt -eq 1) { $bookingSmokeResult = Invoke-BookingSmoke $smokeToken }
             if ($FrontendSmoke -and $attempt -eq 1) {
+                if ($AdminSmoke) { $env:TEST_ADMIN_TOKEN = $smokeToken }
                 $env:API_PROXY_TARGET = "http://127.0.0.1:$httpPort"
                 $env:TEST_ARTIFACT_DIR = Join-Path $run 'screenshots'
                 Push-Location (Join-Path $root 'frontend')
@@ -370,6 +380,7 @@ try {
         socketDirectory = $socketDirectory
         scope = if ($PaymentSmoke) { 'Infrastructure, auth, catalog, booking, signed simulated VNPAY IPN and tickets. No live VNPAY gateway payment.' } else { 'Infrastructure, auth, catalog and booking; no live VNPAY payment.' }
         paymentBrowserSmoke = [bool]$PaymentSmoke
+        adminBrowserSmoke = [bool]$AdminSmoke
         authHttpSmoke = [bool]($AuthSmoke -or $CatalogSmoke)
         catalogHttpSmoke = [bool]$CatalogSmoke
         bookingHttpSmoke = [bool]$BookingSmoke

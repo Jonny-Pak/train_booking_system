@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
-  Armchair,
   BusFront,
   Clock3,
   RefreshCw,
@@ -14,6 +13,9 @@ import { useAuth } from "../auth/AuthContext";
 import { api } from "../lib/api";
 import { date, duration, money, time } from "../lib/format";
 import { EmptyState, ErrorNotice, Loading } from "../components/Feedback";
+
+import SeatMap from "../components/SeatMap";
+import { seatDescription } from "../lib/seats";
 
 export default function TripPage() {
   const { id } = useParams();
@@ -63,7 +65,7 @@ export default function TripPage() {
     } else if (selected.length < 10) {
       setSelected([...selected, seatId]);
     } else {
-      setError("Bạn chỉ có thể chọn tối đa 10 ghế trong một đơn.");
+      setError("Bạn chỉ có thể chọn tối đa 10 chỗ trong một đơn.");
     }
   }
 
@@ -114,6 +116,10 @@ export default function TripPage() {
       </div>
     );
   const VehicleIcon = trip.vehicleType === "TRAIN" ? TrainFront : BusFront;
+  const sleeperBus =
+    trip.vehicleType === "BUS" &&
+    seats.some((seat) => seat.seatClass === "BUS_SLEEPER");
+  const placeLabel = sleeperBus ? "giường" : "ghế";
   const selectedSeats = seats.filter((seat) => selected.includes(seat.id));
 
   return (
@@ -137,12 +143,21 @@ export default function TripPage() {
           {trip.vehicleType === "TRAIN" ? "Tàu hỏa" : "Xe khách"}
         </span>
       </div>
-      <div className="booking-layout">
+      <div
+        className={
+          "booking-layout " +
+          (trip.vehicleType === "TRAIN" ? "train-booking-layout" : "")
+        }
+      >
         <section className="panel seat-panel" aria-labelledby="seat-title">
           <div className="panel-heading">
             <div>
-              <h2 id="seat-title">Chọn chỗ ngồi yêu thích</h2>
-              <p>Tối đa 10 ghế cho một đơn đặt chỗ.</p>
+              <h2 id="seat-title">
+                {sleeperBus
+                  ? "Chọn giường nằm yêu thích"
+                  : "Chọn chỗ ngồi yêu thích"}
+              </h2>
+              <p>Tối đa 10 chỗ cho một đơn đặt chỗ.</p>
             </div>
             <button
               className="icon-button"
@@ -176,46 +191,17 @@ export default function TripPage() {
               <p>Chuyến này chưa sẵn sàng nhận đặt chỗ.</p>
             </EmptyState>
           ) : (
-            <div
-              className={
-                "seat-cabin " +
-                (trip.vehicleType === "TRAIN" ? "train-cabin" : "")
-              }
-            >
-              <div className="cabin-front">
-                <VehicleIcon size={22} />
-                <span>ĐẦU PHƯƠNG TIỆN</span>
-              </div>
-              <div className="seat-grid" aria-label="Sơ đồ ghế">
-                {seats.map((seat) => {
-                  let state = seat.status.toLowerCase();
-                  if (selected.includes(seat.id)) state = "selected";
-                  const label = {
-                    AVAILABLE: "còn trống",
-                    HELD: "đang giữ",
-                    BOOKED: "đã đặt",
-                  }[seat.status];
-                  return (
-                    <button
-                      key={seat.id}
-                      className={"seat " + state}
-                      disabled={seat.status !== "AVAILABLE" || busy}
-                      aria-pressed={selected.includes(seat.id)}
-                      aria-label={"Ghế " + seat.seatCode + ", " + label}
-                      title={seat.seatClass}
-                      onClick={() => toggleSeat(seat.id)}
-                    >
-                      <Armchair size={23} />
-                      <span>{seat.seatCode}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <SeatMap
+              seats={seats}
+              selected={selected}
+              busy={busy}
+              onToggle={toggleSeat}
+            />
           )}
           <p className="seat-footnote">
-            Sơ đồ minh họa theo danh sách ghế, không thể hiện chính xác vị trí
-            vật lý. Ghế chỉ được giữ khi tạo đơn thành công.
+            Chỗ chỉ được giữ khi tạo đơn thành công.
+            {trip.vehicleType === "TRAIN" &&
+              " Có thể chọn nhiều toa trong cùng một đơn."}
           </p>
         </section>
         <aside className="panel booking-summary">
@@ -238,14 +224,14 @@ export default function TripPage() {
           </p>
           <hr />
           <div className="summary-row">
-            <span>Giá mỗi ghế</span>
+            <span>Giá mỗi {placeLabel}</span>
             <strong>{money(trip.basePrice)}</strong>
           </div>
           <div className="summary-row">
-            <span>Ghế đã chọn</span>
+            <span>{sleeperBus ? "Giường đã chọn" : "Ghế đã chọn"}</span>
             <strong>
               {selectedSeats.length
-                ? selectedSeats.map((seat) => seat.seatCode).join(", ")
+                ? selectedSeats.map(seatDescription).join("; ")
                 : "Chưa chọn"}
             </strong>
           </div>
@@ -262,13 +248,15 @@ export default function TripPage() {
             {busy
               ? "Đang giữ chỗ…"
               : token
-                ? "Giữ ghế đã chọn"
-                : "Đăng nhập để giữ ghế"}
+                ? sleeperBus
+                  ? "Giữ giường đã chọn"
+                  : "Giữ ghế đã chọn"
+                : "Đăng nhập để giữ " + placeLabel}
             <ArrowRight size={17} />
           </button>
           <p className="summary-note">
             <ShieldCheck size={16} />
-            Giá và thời hạn giữ ghế được xác nhận khi tạo đơn.
+            Giá và thời hạn giữ {placeLabel} được xác nhận khi tạo đơn.
           </p>
         </aside>
       </div>

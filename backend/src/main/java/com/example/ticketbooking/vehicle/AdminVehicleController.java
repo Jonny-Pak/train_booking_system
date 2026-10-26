@@ -11,9 +11,16 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminVehicleController {
     private final VehicleService service;
+    private final SeatLayoutService layouts;
 
-    public AdminVehicleController(VehicleService service) {
+    public AdminVehicleController(VehicleService service, SeatLayoutService layouts) {
         this.service = service;
+        this.layouts = layouts;
+    }
+
+    @PostMapping("/{vehicleId}/seat-layout")
+    public VehicleResponse generateLayout(@PathVariable long vehicleId) {
+        return layouts.generate(vehicleId);
     }
 
     @GetMapping

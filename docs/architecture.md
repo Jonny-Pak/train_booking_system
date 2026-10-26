@@ -38,6 +38,8 @@ V3 chỉ thêm indexes cho truy vấn catalog và booking theo trip. P3 map Rout
 
 ## Catalog P3
 
+P7 bổ sung module `admin` để trả thống kê qua SQL tham số với snapshot REPEATABLE_READ và transaction chỉ đọc; không đổi schema. React Admin dùng các API catalog/booking/payment hiện có, guard ADMIN ở layout và backend vẫn quyết định quyền cuối cùng. Công thức doanh thu, ranh giới ngày và phạm vi đối soát: [admin-api.md](admin-api.md).
+
 ADMIN CRUD tuyến/phương tiện/ghế/chuyến. Search dùng JPQL trong TripQueryRepository; từng điều kiện được thêm bằng if và giá trị được truyền qua tham số. Ngày tìm là nửa khoảng ngày Việt Nam, đổi sang UTC; departure phải sau Clock hiện tại; sort cố định departureAt/id; phân trang size tối đa 100.
 
 Code ưu tiên cách viết dễ đọc cho đồ án: mỗi câu lệnh một dòng, if/else rõ ràng, vòng lặp for để chuyển danh sách sang DTO, tên biến thể hiện ý nghĩa. Không dùng Specification/Criteria hoặc chuỗi stream cho nghiệp vụ catalog. Các transaction và khóa PostgreSQL vẫn cần thiết để kiểm tra lịch chuyến an toàn khi có nhiều request đồng thời.

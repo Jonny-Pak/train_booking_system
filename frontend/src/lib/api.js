@@ -4,6 +4,32 @@ const baseUrl = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(
 );
 
 const messages = {
+  SITE_CHANGED:
+    "Nội dung đã được cập nhật ở phiên khác. Tải lại trang trước khi lưu để tránh ghi đè.",
+  GUIDE_EMPTY: "Hướng dẫn phải có nội dung văn bản.",
+  INVALID_LOGO: "Ảnh phải là PNG/JPG tối đa 2 MB, mỗi chiều từ 16 đến 4096 px.",
+  STANDARD_LAYOUT_LOCKED:
+    "Sơ đồ chuẩn đã cố định số chỗ. Không thể thêm, sửa hoặc xóa riêng lẻ.",
+  INVALID_DATE_RANGE:
+    "Chọn khoảng ngày hợp lệ, tối đa 366 ngày (từ năm 2000 đến 2100).",
+  INVALID_ROUTE: "Điểm đi và điểm đến phải khác nhau.",
+  VEHICLE_CODE_EXISTS: "Mã phương tiện đã tồn tại.",
+  SEAT_CODE_EXISTS: "Mã ghế đã tồn tại trong phương tiện.",
+  VEHICLE_SCHEDULE_CONFLICT: "Phương tiện đã có chuyến trùng lịch.",
+  ROUTE_IN_USE:
+    "Tuyến đã có chuyến; không thể xóa hoặc thay đổi điểm đi/đến. Bạn có thể ngừng hoạt động.",
+  VEHICLE_IN_USE:
+    "Phương tiện đã có chuyến hoặc ghế; không thể xóa hoặc thay đổi loại.",
+  TRIP_HAS_BOOKINGS: "Chuyến đã có lịch sử đặt vé; không thể sửa hoặc xóa.",
+  SEATS_IN_USE: "Phương tiện đã có lịch sử đặt vé; không thể thay đổi ghế.",
+  VEHICLE_HAS_NO_SEATS: "Hãy tạo ghế cho phương tiện trước khi tạo chuyến.",
+  INVALID_TRIP_TIME: "Giờ đến phải sau giờ khởi hành.",
+  TRIP_IN_PAST: "Chuyến mới phải khởi hành trong tương lai.",
+  TRIP_TERMINAL: "Chuyến đã hủy hoặc hoàn tất; không thể sửa tiếp.",
+  TRIP_NOT_FINISHED:
+    "Chuyến chưa đến giờ kết thúc; chưa thể đánh dấu hoàn tất.",
+  DATA_CONFLICT:
+    "Dữ liệu bị trùng hoặc đang được sử dụng. Hãy tải lại và kiểm tra.",
   VNPAY_NOT_CONFIGURED:
     "Thanh toán VNPAY chưa được cấu hình. Vui lòng liên hệ quản trị viên.",
   BOOKING_NOT_PAYABLE:
@@ -97,4 +123,8 @@ export function tripQuery(filters, page = 0) {
     if (value) query.set(key, value);
   }
   return "/trips?" + query.toString();
+}
+
+export function siteLogoUrl(revision) {
+  return baseUrl + "/site/logo?v=" + revision;
 }

@@ -1,3 +1,4 @@
+import { seatDescription, seatClassLabels } from "../lib/seats";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Clock3, Ticket, X } from "lucide-react";
@@ -15,6 +16,7 @@ export default function BookingPage() {
   const [booking, setBooking] = useState(null);
   const [trip, setTrip] = useState(location.state?.trip || null);
   const [error, setError] = useState(null);
+  const [actionError, setActionError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -68,7 +70,7 @@ export default function BookingPage() {
   async function cancel() {
     if (busy) return;
     setBusy(true);
-    setError(null);
+    setActionError(null);
     try {
       const updated = await api("/bookings/" + id + "/cancel", {
         method: "POST",
@@ -77,7 +79,7 @@ export default function BookingPage() {
       setBooking(updated);
       setConfirming(false);
     } catch (failure) {
-      setError(failure);
+      setActionError(failure);
     } finally {
       setBusy(false);
     }
@@ -86,7 +88,7 @@ export default function BookingPage() {
   async function pay() {
     if (busy) return;
     setBusy(true);
-    setError(null);
+    setActionError(null);
     try {
       const payment = await api("/bookings/" + id + "/payments", {
         method: "POST",
@@ -101,7 +103,7 @@ export default function BookingPage() {
       }
       window.location.assign(payment.paymentUrl);
     } catch (failure) {
-      setError(failure);
+      setActionError(failure);
     } finally {
       setBusy(false);
     }
@@ -121,6 +123,10 @@ export default function BookingPage() {
       </section>
     );
   const status = displayStatus(booking, now);
+  const sleeperBus = booking.seats.every(
+    (seat) => seat.seatClass === "BUS_SLEEPER",
+  );
+  const placeLabel = sleeperBus ? "giường" : "ghế";
 
   return (
     <div className="page-section">
@@ -143,25 +149,34 @@ export default function BookingPage() {
         <div className="hold-banner">
           <Clock3 size={26} />
           <div>
-            <strong>Chỗ ngồi đang được giữ riêng cho bạn</strong>
+            <strong>
+              {sleeperBus
+                ? "Giường nằm đang được giữ riêng cho bạn"
+                : "Chỗ ngồi đang được giữ riêng cho bạn"}
+            </strong>
             <p>
               Hết hạn lúc {time(booking.holdExpiresAt)},{" "}
-              {date(booking.holdExpiresAt)}. Ghế sẽ tự mở lại khi hết thời gian.
+              {date(booking.holdExpiresAt)}. {sleeperBus ? "Giường" : "Ghế"} sẽ
+              tự mở lại khi hết thời gian.
             </p>
           </div>
-          <strong className="countdown" aria-label="Thời gian giữ ghế còn lại">
+          <strong
+            className="countdown"
+            aria-label={"Thời gian giữ " + placeLabel + " còn lại"}
+          >
             {remaining(booking.holdExpiresAt, now)}
           </strong>
         </div>
       )}
       {status === "EXPIRED" && (
         <div className="info-notice" role="status">
-          Thời gian giữ ghế đã kết thúc. Bạn có thể tìm chuyến và tạo đơn mới.
+          Thời gian giữ {placeLabel} đã kết thúc. Bạn có thể tìm chuyến và tạo
+          đơn mới.
         </div>
       )}
       {status === "CANCELLED" && (
         <div className="success-notice" role="status">
-          <Check size={18} /> Đơn đã hủy. Các ghế đã được giải phóng.
+          <Check size={18} /> Đơn đã hủy. Các {placeLabel} đã được giải phóng.
         </div>
       )}
       <ErrorNotice error={error} />
@@ -205,14 +220,18 @@ export default function BookingPage() {
           </div>
           <div className="seat-table">
             <div className="seat-table-heading">
-              <span>Ghế / hạng ghế</span>
+              <span>
+                {sleeperBus ? "Giường / loại giường" : "Ghế / hạng ghế"}
+              </span>
               <span>Giá đã xác nhận</span>
             </div>
             {booking.seats.map((seat) => (
               <div className="seat-table-row" key={seat.id}>
                 <span>
-                  <strong>{seat.seatCode}</strong>
-                  <small>{seat.seatClass}</small>
+                  <strong>{seatDescription(seat)}</strong>
+                  <small>
+                    {seatClassLabels[seat.seatClass] || seat.seatClass}
+                  </small>
                 </span>
                 <strong>{money(seat.unitPrice)}</strong>
               </div>
@@ -227,8 +246,10 @@ export default function BookingPage() {
         <aside className="panel booking-summary">
           <span className="eyebrow muted">CHI TIẾT ĐƠN</span>
           <div className="summary-row">
-            <span>Số ghế</span>
-            <strong>{booking.seats.length} ghế</strong>
+            <span>{sleeperBus ? "Số giường" : "Số ghế"}</span>
+            <strong>
+              {booking.seats.length} {placeLabel}
+            </strong>
           </div>
           <div className="summary-row">
             <span>Trạng thái</span>
@@ -263,6 +284,7 @@ export default function BookingPage() {
                 {busy ? "Đang xử lý…" : "Thanh toán VNPAY Sandbox"}
               </button>
             )}
+          <ErrorNotice error={actionError} />
           {status === "PENDING" && (
             <p className="info-notice">
               Thanh toán thử nghiệm Sandbox, không dùng tiền thật. Thời gian

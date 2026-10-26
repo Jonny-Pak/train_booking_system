@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowDownUp,
   ArrowRight,
@@ -306,10 +306,10 @@ export default function SearchPage() {
           <Clock3 />
           <span>Giữ chỗ có thời hạn</span>
         </div>
-        <a href="#booking-guide">
+        <Link to="/booking-guide">
           <Headphones />
           <span>Hướng dẫn đặt vé</span>
-        </a>
+        </Link>
       </section>
 
       <div className="home-content">
@@ -438,6 +438,9 @@ export default function SearchPage() {
         </section>
         <section className="reference-guide" id="booking-guide">
           <h2>Đặt vé dễ dàng chỉ với 3 bước</h2>
+          <Link className="guide-detail-link" to="/booking-guide">
+            Xem hướng dẫn đầy đủ: đăng ký, chọn chỗ, thanh toán và nhận vé →
+          </Link>
           <div className="reference-guide-grid">
             <div>
               <span>01</span>

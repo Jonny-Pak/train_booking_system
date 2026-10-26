@@ -251,3 +251,61 @@ test("failed payment can retry, but success after cancellation shows reconciliat
   ).toHaveLength(0);
   await screenshot(page, "payment-reconciliation.png");
 });
+
+test("payment configuration error stays beside the button after booking refresh and polling", async ({
+  page,
+  request,
+}) => {
+  const owner = await account(request);
+  await login(page, owner);
+  const booking = await book(request, owner, ["A2"]);
+  const headers = { Authorization: "Bearer " + owner.session.accessToken };
+  await page.goto("/bookings/" + booking.id);
+  const button = page.getByRole("button", {
+    name: "Thanh toán VNPAY Sandbox",
+    exact: true,
+  });
+  await expect(button).toBeEnabled();
+  await page.route(
+    "**/api/v1/bookings/" + booking.id + "/payments",
+    (route) => {
+      if (route.request().method() === "POST")
+        return route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ code: "VNPAY_NOT_CONFIGURED" }),
+        });
+      return route.continue();
+    },
+  );
+  let refreshReads = 0;
+  page.on("request", (req) => {
+    if (
+      req.method() === "GET" &&
+      new URL(req.url()).pathname === "/api/v1/bookings/" + booking.id
+    )
+      refreshReads++;
+  });
+  await button.click();
+  const alert = page.locator(".booking-summary").getByRole("alert");
+  await expect(alert).toContainText("Thanh toán VNPAY chưa được cấu hình");
+  await expect(button).toBeEnabled();
+  await expect
+    .poll(() => refreshReads, { timeout: 25000 })
+    .toBeGreaterThanOrEqual(2);
+  await expect(alert).toContainText("Thanh toán VNPAY chưa được cấu hình");
+  const history = await (
+    await request.get(api + "/bookings/" + booking.id + "/payments", {
+      headers,
+    })
+  ).json();
+  expect(history).toHaveLength(0);
+  await screenshot(page, "payment-configuration-error.png");
+  expect(
+    (
+      await request.post(api + "/bookings/" + booking.id + "/cancel", {
+        headers,
+      })
+    ).status(),
+  ).toBe(200);
+});

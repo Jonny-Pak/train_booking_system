@@ -1,0 +1,301 @@
+.vehicle-front {
+  text-align: center;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 22px;
+}
+.bus-layout {
+  width: max-content;
+  max-width: 100%;
+  margin: 25px auto;
+  border: 2px solid #c5d2e4;
+  border-radius: 40px 40px 20px 20px;
+  background: #f6f9fe;
+  padding: 28px 20px;
+}
+.bus-row {
+  display: grid;
+  grid-template-columns: 48px 48px 26px 48px 48px;
+  gap: 8px;
+  margin: 14px 0;
+}
+.bus-row .seat {
+  width: 48px;
+  height: 62px;
+  margin: 0;
+}
+.bus-driver {
+  display: flex;
+  justify-content: center;
+  margin: 18px 0;
+}
+.bus-driver > span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #64748b;
+}
+.bus-aisle {
+  writing-mode: vertical-rl;
+  align-self: center;
+  justify-self: center;
+  color: #94a3b8;
+  font-size: 10px;
+  letter-spacing: 3px;
+}
+.train-booking-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+.bus-sleeper-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 450px;
+  margin: 24px auto;
+}
+.bus-sleeper-layout > .vehicle-front,
+.bus-sleeper-layout > .bus-driver {
+  grid-column: 1/-1;
+  margin: 0;
+}
+.bus-sleeper-layout > .bus-driver {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #64748b;
+  font-size: 12px;
+}
+.bus-sleeper-deck {
+  border: 2px solid #c5d2e4;
+  border-radius: 24px 24px 12px 12px;
+  background: #f6f9fe;
+  padding: 18px 12px;
+  min-width: 0;
+}
+.bus-sleeper-deck h3 {
+  text-align: center;
+  font-size: 18px;
+  color: #275d91;
+}
+.bus-sleeper-deck > p {
+  text-align: center;
+  font-size: 12px;
+  color: #64748b;
+  margin: 8px 0 18px;
+}
+.sleeper-bus-row {
+  display: grid;
+  grid-template-columns: 54px 24px 54px;
+  gap: 8px;
+  justify-content: center;
+  margin: 12px 0;
+}
+.sleeper-bus-row .seat {
+  width: 54px;
+  height: 86px;
+  border-radius: 14px;
+  margin: 0;
+}
+.sleeper-bus-row .seat svg {
+  width: 26px;
+  height: 26px;
+}
+.sleeper-bus-row .missing-position {
+  width: 54px;
+  height: 86px;
+}
+.train-booking-layout .booking-summary {
+  position: static;
+  max-width: none;
+}
+.train-layout {
+  min-width: 0;
+}
+.coach-selector {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 0 16px;
+}
+.coach-selector button {
+  flex: 0 0 88px;
+  min-height: 96px;
+  border: 1px solid #cbd5e1;
+  background: white;
+  border-radius: 12px;
+  padding: 12px 8px;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  color: #476078;
+}
+.coach-selector button[aria-selected="true"] {
+  border: 2px solid #2574e8;
+  background: #edf5ff;
+  color: #155bc1;
+}
+.coach-selector small {
+  font-size: 11px;
+}
+.coach-picked {
+  font-size: 10px;
+  color: #0c7552;
+}
+.coach-title {
+  margin: 16px 0 8px;
+  color: #176b9e;
+  font-size: 20px;
+}
+.seat-map-scroll {
+  max-width: 100%;
+  overflow: auto;
+  margin-top: 18px;
+  border: 2px solid #456a99;
+  border-radius: 14px;
+  padding: 24px 18px;
+  background: #fff;
+}
+.seated-coach,
+.sleeper-coach {
+  display: flex;
+  width: max-content;
+  gap: 12px;
+  margin: auto;
+}
+.train-seat-column {
+  display: grid;
+  gap: 6px;
+}
+.train-seat-column:nth-child(8) {
+  margin-left: 20px;
+}
+.after-train-aisle {
+  margin-top: 28px;
+}
+.train-layout .seat {
+  width: 44px;
+  height: 52px;
+  margin: 0;
+  font-size: 15px;
+  border-radius: 8px;
+}
+.train-layout .seat svg {
+  width: 19px;
+  height: 19px;
+}
+.train-room {
+  display: grid;
+  gap: 8px;
+  border-left: 4px solid #456a99;
+  padding-left: 8px;
+}
+.train-room > p {
+  text-align: center;
+  height: 22px;
+  margin: 0 0 6px;
+  color: #64748b;
+  font-size: 12px;
+}
+.berth-pair {
+  display: flex;
+  gap: 8px;
+}
+.deck-labels {
+  display: grid;
+  gap: 8px;
+  padding-right: 8px;
+}
+.deck-labels > span {
+  height: 28px;
+}
+.deck-labels strong {
+  display: flex;
+  align-items: center;
+  height: 52px;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #64748b;
+}
+.missing-position {
+  width: 44px;
+  height: 52px;
+}
+.seat.available {
+  border-color: #a7b6c8;
+  background: white;
+  color: #35536f;
+}
+.seat.selected {
+  background: #237bcd;
+  color: white;
+  border-color: #125ba6;
+}
+.seat.selected:hover {
+  background: #165fa7;
+}
+.seat-legend .selected {
+  background: #237bcd;
+  border-color: #125ba6;
+}
+.seat-legend .held {
+  background: #fff0da;
+  border-color: #e2ae58;
+}
+.seat-legend .booked {
+  background: #e8edf2;
+  border-color: #c4cdd7;
+}
+.seat.held {
+  background: #fff0da;
+  border-color: #e2ae58;
+  color: #8d6017;
+}
+.seat.booked {
+  background: #e8edf2;
+  border-color: #c4cdd7;
+  color: #7a8794;
+}
+@media (max-width: 600px) {
+  .bus-sleeper-layout {
+    gap: 8px;
+  }
+  .bus-sleeper-deck {
+    padding: 16px 5px;
+  }
+  .bus-sleeper-deck h3 {
+    font-size: 16px;
+  }
+  .bus-sleeper-deck > p {
+    font-size: 10px;
+  }
+  .sleeper-bus-row {
+    grid-template-columns: 38px 14px 38px;
+    gap: 4px;
+  }
+  .sleeper-bus-row .seat,
+  .sleeper-bus-row .missing-position {
+    width: 38px;
+    height: 70px;
+  }
+  .sleeper-bus-row .seat svg {
+    width: 22px;
+    height: 22px;
+  }
+  .seat-map-scroll {
+    padding: 18px 12px;
+  }
+  .coach-title {
+    font-size: 17px;
+  }
+  .bus-layout {
+    padding: 24px 12px;
+  }
+  .bus-row {
+    gap: 6px;
+    grid-template-columns: 42px 42px 20px 42px 42px;
+  }
+  .bus-row .seat {
+    width: 42px;
+  }
+}

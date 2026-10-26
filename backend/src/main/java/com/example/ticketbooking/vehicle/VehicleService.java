@@ -55,7 +55,7 @@ public class VehicleService {
         guard.lockVehicleTrips(id);
         Vehicle vehicle = find(id);
         uniqueCode(request.vehicleCode(), id);
-        if (hasTrips(id) && vehicle.getVehicleType() != request.vehicleType()) {
+        if ((hasTrips(id) || !"CUSTOM".equals(vehicle.getSeatLayout())) && vehicle.getVehicleType() != request.vehicleType()) {
             throw CatalogGuard.conflict("VEHICLE_IN_USE", "Type of a vehicle with trips cannot change");
         }
         vehicle.update(request);
@@ -97,6 +97,7 @@ public class VehicleService {
         guard.lockVehicleTrips(vehicleId);
         Vehicle vehicle = find(vehicleId);
         editableSeats(vehicleId);
+        manualSeatsOnly(vehicle);
         uniqueSeat(vehicleId, request.seatCode(), -1L);
         Seat seat = new Seat(vehicle, request);
         seats.saveAndFlush(seat);
@@ -107,9 +108,10 @@ public class VehicleService {
     public SeatResponse updateSeat(long vehicleId, long seatId, SeatRequest request) {
         guard.lockWrites();
         guard.lockVehicleTrips(vehicleId);
-        find(vehicleId);
+        Vehicle vehicle = find(vehicleId);
         Seat seat = findSeat(vehicleId, seatId);
         editableSeats(vehicleId);
+        manualSeatsOnly(vehicle);
         uniqueSeat(vehicleId, request.seatCode(), seatId);
         seat.update(request);
         seats.saveAndFlush(seat);
@@ -120,9 +122,10 @@ public class VehicleService {
     public void deleteSeat(long vehicleId, long seatId) {
         guard.lockWrites();
         guard.lockVehicleTrips(vehicleId);
-        find(vehicleId);
+        Vehicle vehicle = find(vehicleId);
         Seat seat = findSeat(vehicleId, seatId);
         editableSeats(vehicleId);
+        manualSeatsOnly(vehicle);
         seats.delete(seat);
         seats.flush();
     }
@@ -170,6 +173,12 @@ public class VehicleService {
     private void editableSeats(long id) {
         if (guard.vehicleHasBookings(id)) {
             throw CatalogGuard.conflict("SEATS_IN_USE", "Seat layout of a vehicle with booking history cannot change");
+        }
+    }
+
+    private void manualSeatsOnly(Vehicle vehicle) {
+        if (!"CUSTOM".equals(vehicle.getSeatLayout())) {
+            throw CatalogGuard.conflict("STANDARD_LAYOUT_LOCKED", "Standard layouts must retain their fixed capacity and positions");
         }
     }
 }

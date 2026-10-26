@@ -26,19 +26,27 @@ public class VnpayGateway {
     private final String merchant;
     private final String secret;
     private final String returnUrl;
+    private final String paymentEndpoint;
 
     public VnpayGateway(@Value("${vnpay.enabled:false}") boolean enabled,
             @Value("${vnpay.tmn-code:}") String merchant,
             @Value("${vnpay.hash-secret:}") String secret,
-            @Value("${vnpay.return-url:http://localhost:5173/payment/return}") String returnUrl) {
+            @Value("${vnpay.return-url:http://localhost:5173/payment/return}") String returnUrl,
+            @Value("${vnpay.payment-url:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}") String paymentEndpoint) {
         this.enabled = enabled;
         this.merchant = merchant;
         this.secret = secret;
         this.returnUrl = returnUrl;
+        this.paymentEndpoint = paymentEndpoint;
+        if (!SANDBOX_URL.equals(paymentEndpoint)) {
+            throw new IllegalArgumentException("Only the VNPAY Sandbox payment endpoint is supported");
+        }
         if (enabled) {
             URI uri = URI.create(returnUrl);
+            boolean localHttp = "http".equals(uri.getScheme()) && uri.getHost() != null &&
+                    Set.of("localhost", "127.0.0.1", "[::1]").contains(uri.getHost());
             if (!merchant.matches("[A-Za-z0-9]{1,32}") || secret.length() < 16
-                    || !("http".equals(uri.getScheme()) || "https".equals(uri.getScheme()))
+                    || !(localHttp || "https".equals(uri.getScheme()))
                     || uri.getHost() == null || uri.getUserInfo() != null
                     || uri.getFragment() != null || uri.getQuery() != null) {
                 throw new IllegalArgumentException("Invalid VNPAY Sandbox configuration");
@@ -67,7 +75,7 @@ public class VnpayGateway {
         fields.put("vnp_IpAddr", ipAddress);
         fields.put("vnp_CreateDate", format(payment.getCreatedAt()));
         fields.put("vnp_ExpireDate", format(payment.getExpiresAt()));
-        return SANDBOX_URL + "?" + canonical(fields) + "&vnp_SecureHash=" + sign(fields);
+        return paymentEndpoint + "?" + canonical(fields) + "&vnp_SecureHash=" + sign(fields);
     }
 
     public Map<String, String> verifiedFields(MultiValueMap<String, String> query) {
